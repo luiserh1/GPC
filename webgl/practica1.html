@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- 
+  Práctica 1:
+  La aplicación (script en webgl y shaders) debe dibujar una polilínea y sus vértices
+  conforme el usuario va punteando la pantalla. La intensidad del color de los vértices
+  y tramos de la polilínea deberá ser proporcional a su cercanía al centro del área de
+  dibujo. Elegir a voluntad el color de fondo del canvas así como el de la polilínea.
+-->
+<html lang="es">
+	<head>
+		<meta charset='utf-8'>
+		<title>Practica 1</title>
+		<style>
+			body {
+				background-color: rgb(0, 0, 0);
+				margin: 0px;
+				overflow: hidden;
+			}
+		</style>
+	</heado>
+	<body>
+		<!-- Contenedor del app -->
+		<div id="container"></div>
+
+		<!-- Scripts de biblioteca -->
+		<script src="lib/three.min_r96.js"></script>
+
+		<!-- Mi aplicación-->
+		<script src="threejs/P1_Polilinea.js"></script>
+
+	</body>
+</html>
