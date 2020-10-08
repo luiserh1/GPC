@@ -12,18 +12,23 @@
 		<title>Practica 1</title>
 		<style>
 			body {
-				background-color: rgb(0, 0, 0);
-				margin: 0px;
-				overflow: hidden;
+				background-color: grey;
+			}
+			canvas {
+				background-color: white;
 			}
 		</style>
 	</heado>
-	<body>
-		<!-- Contenedor del app -->
-		<div id="container"></div>
+	<body onload="main()">
+		<canvas id="canvas" width="400" height="300">
+			El navegador no soporta el canvas de HTML5
+		</canvas>
 
 		<!-- Scripts de biblioteca -->
-		<script src="lib/three.min_r96.js"></script>
+		<script src="lib/webgl-utils.js"></script>
+		<script src="lib/webgl-debug.js"></script>
+		<script src="lib/cuon-utils.js"></script>
+
 
 		<!-- Mi aplicación-->
 		<script src="threejs/P1_Polilinea.js"></script>
