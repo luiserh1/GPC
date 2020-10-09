@@ -25,8 +25,8 @@ var FSHADER_SOURCE =
 	"varying lowp vec4 vPos;								\n" + // Misma declaración para hacer efectiva la comunicación
 	"void main() {											\n" + // En el shader de fragmentos no hay atributos
 	"	vec4 absvPos = abs(vPos);							\n" + // Las posiciones pueden ser negativas, loconvertimos a valor absoluto. Ahora van de 0 a 1									
-	"	float tone = 1.0 - (absvPos[0] + absvPos[1]) / 2.0;	\n" + // 							
-	"	gl_FragColor = vec4( tone , tone, tone, 1.0);		\n" +							
+	"	float tone = 1.0 - (absvPos[0] + absvPos[1]) / 2.0;	\n" + // Sumamos la 'x' y la 'y` y normalizamos						
+	"	gl_FragColor = vec4( tone , tone, tone, 1.0);		\n" + // Los grises se logran poniendo los mismos valores para rojo, verde y azul							
 	"}														\n";
 
 function main()
