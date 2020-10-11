@@ -319,9 +319,7 @@ function updateAspectRatio() {
 /*
 * Cambios entre frames. En esta ocasión, al no haber animaciones, no es necesaria
 */
-function update() {
-
-}
+function update() {}
 
 /*
 * Función a cargo de dibujar cada frame
