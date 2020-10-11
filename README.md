@@ -1,2 +1,2 @@
-# GPC_Test
-Repositorio que aloja la primera práctica de GPC
+# GPC
+Repositorio que aloja las prácticas de GPC
