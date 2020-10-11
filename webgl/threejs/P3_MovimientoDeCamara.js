@@ -1,12 +1,22 @@
 /**
-*	Práctica GPC #2. Grafo de Escena
-*	El robete majete
-*
+*	Práctica GPC #3. Grafo de Escena
+*	La camarita que orbita
 */
 const pi = 3.1415926535;
 
-// Variables imprescindibles
+////////////////////////
+// VARIABLES GLOBALES //
+////////////////////////
+// Imprescindibles
 var renderer, scene, camera;
+// Controladora de la cámara
+var cameraController;
+// Minicámara y sus atributos
+var miniCam;
+// ODIO JS. TOP YA ES ALGO Y NO AVISA DE NINGUNA FORMA
+var r = t = 200;
+var l = b = -r;
+var n = -200, f = 800;
 
 // Acciones
 init();
@@ -18,14 +28,29 @@ render();
 */
 function setCameras(ar)
 {
-    var puntoInteres = new THREE.Vector3(0, 125, 0);
+    var puntoInteres = new THREE.Vector3(-50, 125, -50);
 
     // Perspectiva
     camera = new THREE.PerspectiveCamera( 50, ar, 0.1, 1500);
 	camera.position.set(200, 250, 175);
-    camera.lookAt(puntoInteres);
+
+    // El controlador de la cámara recibe como parámetros la propia cámara y el canvas
+    cameraController = new THREE.OrbitControls(camera, render.domElement);
+    camera.lookAt(puntoInteres); // Debe ir después de la inicialización de los controladores para evitar reseteos
+    cameraController.target.set(puntoInteres.x, puntoInteres.y, puntoInteres.z);
+    cameraController.enableKeys = false;
+
+    // Ortográfica cenital (minicámara)
+    miniCam = new THREE.OrthographicCamera(l, r, t, b, n, f);
+    miniCam.position.set(-50, 300, -50);
+    miniCam.lookAt(puntoInteres);
+    miniCam.up = new THREE.Vector3(0, 0, -1);
 
     scene.add(camera);
+    scene.add(miniCam);
+
+    /*var helper = new THREE.CameraHelper( miniCam );
+    scene.add( helper );*/
 }
 
 /*
@@ -285,6 +310,10 @@ function updateAspectRatio() {
     camera.aspect = ar;
     // Se ha variado el volumen de la vista
     camera.updateProjectionMatrix();
+
+    // La minicámara debe conservar su aspecto
+    //miniCam.aspect = 1;
+    //camera.updateProjectionMatrix();
 }
 
 /*
@@ -304,5 +333,13 @@ function render() {
 
     renderer.clear();
 
+    // La cámara principal ocupa todala ventana
+    renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
     renderer.render( scene, camera );
+
+    // El lado de la mionicámara es una cuarta parte del lado más pequeño de la ventana
+    var min = Math.min(window.innerHeight, window.innerWidth);
+    // La minicámara debe permanecer en la parte superior izquierda de la ventana
+    renderer.setViewport(5, 5, min/4, min/4);
+    renderer.render( scene, miniCam );
 }
