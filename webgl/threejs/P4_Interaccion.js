@@ -135,23 +135,24 @@ function robotMesh(material)
 
     // Las partes de súperpiezas como el brazo, antebrazo, mano etc. se definen con origen en (0,0,0) y después
     // son las súperpiezas en conjunto las que son transladas a sus respectivas posiciones en el robot
-    // BRAZO
-    var brazo = new THREE.Object3D();
+see    // La función de el BRAZO ha sido reemplazada por el EJE para facilitar la rotación
     var eje, esparrago, rotula;
-    rotula = new THREE.Mesh(geoCilindro.clone(), material);
-    rotula.geometry.scale(20, 18, 20);
-    rotula.geometry.rotateZ(pi/2);
+    eje = new THREE.Mesh(geoCilindro.clone(), material);
+    eje.geometry.scale(20, 18, 20);
+    eje.geometry.rotateX(pi/2);
     esparrago = new THREE.Mesh(geoCubo.clone(), material);
     esparrago.geometry.scale(18, 120, 12);
     esparrago.geometry.translate(0, 60, 0);
-    eje = new THREE.Mesh(geoesfera, material);
-    eje.geometry.scale(20, 20, 20);
-    eje.geometry.translate(0, 120, 0);
+    rotula = new THREE.Mesh(geoesfera, material);
+    rotula.geometry.scale(20, 20, 20);
+    rotula.geometry.translate(0, 120, 0);
 
-    brazo.add(eje);
-    brazo.add(esparrago);
-    brazo.add(rotula);
-    brazo.translateY(20);
+    //var axes = new THREE.AxesHelper(50);
+    //eje.add(axes);
+
+    eje.add(esparrago);
+    eje.add(rotula);
+    eje.translateY(20);
 
     // ANTEBRAZO
     var antebrazo = new THREE.Object3D();
@@ -194,8 +195,8 @@ function robotMesh(material)
     antebrazo.translateY(120);
 
     // Ensamblado final
-    brazo.add(antebrazo);
-    base.add(brazo);
+    eje.add(antebrazo);
+    base.add(eje);
     robot.add(base);
 
     return robot;
@@ -210,7 +211,7 @@ class Robot
     {
         this.malla = robotMesh(material);
         this.desp = new THREE.Vector2(0, 0);
-        //this.giroBase = this.giroBrazo = this.giroAntebrazoY = this.giroAntebrazoZ = this.giroPinza = this.cierrePinzas = 0;
+        this.giroBase = this.giroBrazo = this.giroAntebrazoY = this.giroAntebrazoZ = this.giroPinza = this.cierrePinzas = 0;
 
         this.despeLim = new THREE.Vector2(500, 500);
         this.giroBaseLim = new THREE.Vector2(-pi, pi);
@@ -228,11 +229,45 @@ class Robot
         this.malla.translateZ(z);
     }
 
-    walk(desp)
+    andar(desp)
     {
         this.malla.translateX(desp.x);
         this.malla.translateZ(desp.y);
         this.desp += desp;
+    }
+
+    rotarBase(angulo)
+    {
+        var base = this.malla.getObjectById(this.malla.id + 1); // La base es el primer y único hijo del robot
+        var nuevoAngulo = angulo + this.giroBase;
+        if (nuevoAngulo < this.giroBaseLim.x || nuevoAngulo > this.giroBaseLim.y) 
+        {
+            console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación de la base");
+            return;
+        }
+        else
+        {
+            console.info("Base rotada " + angulo + " radianes. Nuevo ángulo: " + nuevoAngulo);
+            this.giroBase = nuevoAngulo;
+            base.rotateY(angulo);
+        }
+    }
+
+    rotarBrazo(angulo)
+    {
+        var brazo = this.malla.getObjectById(this.malla.id + 1); // La base es el primer y único hijo del robot
+        var nuevoAngulo = angulo + this.giroBrazo;
+        if (nuevoAngulo < this.giroBrazoLim.x || nuevoAngulo > this.giroBrazoLim.y) 
+        {
+            console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación del brazo");
+            return;
+        }
+        else
+        {
+            console.info("Brazo rotado " + angulo + " radianes. Nuevo ángulo: " + nuevoAngulo);
+            this.giroBrazo = nuevoAngulo;
+            brazo.rotateZ(angulo);
+        }
     }
 }
 
