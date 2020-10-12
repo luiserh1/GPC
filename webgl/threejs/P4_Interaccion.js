@@ -135,7 +135,7 @@ function robotMesh(material)
 
     // Las partes de súperpiezas como el brazo, antebrazo, mano etc. se definen con origen en (0,0,0) y después
     // son las súperpiezas en conjunto las que son transladas a sus respectivas posiciones en el robot
-see    // La función de el BRAZO ha sido reemplazada por el EJE para facilitar la rotación
+    // La función de el BRAZO ha sido reemplazada por el EJE para facilitar la rotación
     var eje, esparrago, rotula;
     eje = new THREE.Mesh(geoCilindro.clone(), material);
     eje.geometry.scale(20, 18, 20);
