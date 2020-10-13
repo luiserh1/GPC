@@ -17,6 +17,9 @@ var renderer, scene, camera;
 var cameraController;
 // los efectos
 var effectController;
+// los controles
+var domEvents, keyboard;
+
 // Giros Flags
 var giroBaseFlag, giroBrazoFlag, giroAntebrazoYFlag, giroAntebrazoZFlag, giroPinzaFlag, aperturaPinzaFlag;
 
@@ -480,6 +483,10 @@ function init() {
     // Interfaz Gráfica de Usuario
     setUpGui();
 
+    // Controles
+    domEvents = new THREEx.DomEvents(camera, renderer.domElement);
+    keyboard = new THREEx.KeyboardState(renderer.domElement);
+
     // Eventos
     window.addEventListener('resize', updateAspectRatio);
 
@@ -601,4 +608,5 @@ function render() {
 
 // TODO
 // -> Añadir controles de flechas para mover la base
-// Añadir botones para desactivar los orbitcontrols y para mostrar los stats
+// -> Añadir botones para desactivar los orbitcontrols y para mostrar los stats
+// Revisar rotaciones que causan problemas, como rotarPinzas
