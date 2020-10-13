@@ -2,20 +2,35 @@
 *	Práctica GPC #4. Interacción
 *	La articulación, ¡que emoción!
 */
+"use strict"; // Ayuda a hacer un poco más estricto el tipado de las variables
+
 const pi = 3.1415926535;
+var materialDebug = new THREE.MeshBasicMaterial({color:'white', wireframe:true}); 
 
 ////////////////////////
 // VARIABLES GLOBALES //
 ////////////////////////
 // Imprescindibles
 var renderer, scene, camera;
-// Controladora de la cámara
+// Controladores de
+// la cámara
 var cameraController;
+// los efectos
+var effectController;
+// Giros Flags
+var giroBaseFlag, giroBrazoFlag, giroAntebrazoYFlag, giroAntebrazoZFlag, giroPinzaFlag, aperturaPinzaFlag;
+
 // Minicámara y sus atributos
 var miniCam;
-var r = t = 200; // ODIO JS. TOP YA ES ALGO Y NO AVISA DE NINGUNA FORMA. AHORA HE RENOMBRADO TODO
-var l = b = -r;
+var r = 200; // ODIO JS. TOP YA ES ALGO Y NO AVISA DE NINGUNA FORMA. AHORA HE RENOMBRADO TODO
+var t = 200;
+var l = -r;
+var b = -t;
 var n = -200, f = 800;
+// El robot a manejar
+var robot;
+
+function degreesToRadians(degrees) { return degrees * (pi/180); }
 
 /*
 * Forma manual de crear y devolver la geometría de un plano. Existe ya la opción de generar geometrías de planos
@@ -54,7 +69,7 @@ function planeMesh(lado, material)
     }
 
     // Creamos la malla del objeto
-    plano = new THREE.Mesh(geo, material);
+    var plano = new THREE.Mesh(geo, material);
     return plano;
 }
 
@@ -95,7 +110,7 @@ function pinzaGeometry(length)
         vertexSum[2] += coordenadas[i+2];
     }
     // Se registran las caras. Leyendo de atrás hacia delante se generan los triángulos con los vértices en sentido antihorario
-    for (var i = indices.length; i > 0; i -= 3)
+    for (var i = indices.length-1; i > 0; i -= 3)
     {
         var triangulo = new THREE.Face3(indices[i], indices[i-1], indices[i-2]);
         // for (var j = 0; j < 3; j++) { }
@@ -135,7 +150,8 @@ function robotMesh(material)
 
     // Las partes de súperpiezas como el brazo, antebrazo, mano etc. se definen con origen en (0,0,0) y después
     // son las súperpiezas en conjunto las que son transladas a sus respectivas posiciones en el robot
-    // La función de el BRAZO ha sido reemplazada por el EJE para facilitar la rotación
+    // BRAZO
+    var brazo = new THREE.Object3D();
     var eje, esparrago, rotula;
     eje = new THREE.Mesh(geoCilindro.clone(), material);
     eje.geometry.scale(20, 18, 20);
@@ -147,16 +163,9 @@ function robotMesh(material)
     rotula.geometry.scale(20, 20, 20);
     rotula.geometry.translate(0, 120, 0);
 
-    //var axes = new THREE.AxesHelper(50);
-    //eje.add(axes);
-
-    eje.add(esparrago);
-    eje.add(rotula);
-    eje.translateY(20);
-
     // ANTEBRAZO
     var antebrazo = new THREE.Object3D();
-    var disco, nervios, mano;
+    var disco, nervios;
     disco = new THREE.Mesh(geoCilindro.clone(), material);
     disco.geometry.scale(22, 6, 22);
     nervios = [];
@@ -170,34 +179,40 @@ function robotMesh(material)
         //console.log("i: " + i + " -> despX=" + despX + ", despY=" + despY + ", despZ=" + despZ);
         nervios[i].geometry.translate(despX, despY, despZ);
     }
-    mano = new THREE.Mesh(geoCilindro.clone(), material);
-    mano.geometry.scale(15, 40, 15);
-    mano.geometry.rotateX(pi/2);
-    mano.geometry.translate(0, 86, 0);
 
-    // MANO (no es necesario crear un Object3D vacío, ya tenemos la mano)
-    var pinzaIz, pinzaDer;
+    // MANO 
+    var mano = new THREE.Object3D();
+    var palma, pinzaIz, pinzaDer;
+    palma = new THREE.Mesh(geoCilindro.clone(), material);
+    palma.geometry.scale(15, 40, 15);
+    palma.geometry.rotateX(pi/2);
     pinzaIz = new THREE.Mesh(geoPinza.clone(), material);
     pinzaIz.geometry.rotateZ(pi/2);
     pinzaIz.geometry.rotateY(pi/2);
-    pinzaIz.geometry.translate(15, 87.5, 10);
+    pinzaIz.geometry.translate(15, 1.5, 15);
     pinzaDer = new THREE.Mesh(geoPinza.clone(), material);
     pinzaDer.geometry.rotateZ(pi/2);
     pinzaDer.geometry.rotateY(pi/2);
-    pinzaDer.geometry.translate(15, 87.5, -10);
+    pinzaDer.geometry.translate(15, 1.5, -15);
 
-    mano.add(pinzaIz);
-    mano.add(pinzaDer);
-
-    antebrazo.add(disco);
-    for (var i = 0; i < 4; i++ ) antebrazo.add(nervios[i]);
-    antebrazo.add(mano);
+    robot.add(base);                        //console.log(base.id);
+    base.add(brazo);                        //console.log(brazo.id);
+    brazo.add(eje);                         //console.log(eje.id);
+    brazo.add(esparrago);                   //console.log(esparrago.id);
+    brazo.add(rotula);                      //console.log(rotula.id);
+    brazo.translateY(20);
+    brazo.add(antebrazo);                   //console.log(antebrazo.id);
+    antebrazo.add(disco);                   //console.log(disco.id);
+    for (var i = 0; i < 4; i++ )
+    {
+        antebrazo.add(nervios[i]);          //console.log(nervios[i].id);
+    }
     antebrazo.translateY(120);
-
-    // Ensamblado final
-    eje.add(antebrazo);
-    base.add(eje);
-    robot.add(base);
+    antebrazo.add(mano);                    //console.log("->"+mano.id);
+    mano.add(palma);                        //console.log(palma.id);
+    mano.add(pinzaIz);                      //console.log(pinzaIz.id);
+    mano.add(pinzaDer);                     //console.log(pinzaDer.id);
+    mano.translateY(86);
 
     return robot;
 }
@@ -210,6 +225,7 @@ class Robot
     constructor(material)
     {
         this.malla = robotMesh(material);
+        this.baseID = this.malla.id + 1;
         this.desp = new THREE.Vector2(0, 0);
         this.giroBase = this.giroBrazo = this.giroAntebrazoY = this.giroAntebrazoZ = this.giroPinza = this.cierrePinzas = 0;
 
@@ -238,7 +254,7 @@ class Robot
 
     rotarBase(angulo)
     {
-        var base = this.malla.getObjectById(this.malla.id + 1); // La base es el primer y único hijo del robot
+        var base = this.malla.getObjectById(this.baseID); // La base es el primer y único hijo del robot
         var nuevoAngulo = angulo + this.giroBase;
         if (nuevoAngulo < this.giroBaseLim.x || nuevoAngulo > this.giroBaseLim.y) 
         {
@@ -255,7 +271,7 @@ class Robot
 
     rotarBrazo(angulo)
     {
-        var brazo = this.malla.getObjectById(this.malla.id + 1); // La base es el primer y único hijo del robot
+        var brazo = this.malla.getObjectById(this.baseID + 1); // El brazo es el primer y único hijo de la base
         var nuevoAngulo = angulo + this.giroBrazo;
         if (nuevoAngulo < this.giroBrazoLim.x || nuevoAngulo > this.giroBrazoLim.y) 
         {
@@ -266,16 +282,114 @@ class Robot
         {
             console.info("Brazo rotado " + angulo + " radianes. Nuevo ángulo: " + nuevoAngulo);
             this.giroBrazo = nuevoAngulo;
-            brazo.rotateZ(angulo);
+            var eje = brazo.getObjectById(brazo.id + 1);
+            var pivotAxes = new THREE.Vector3(0,0,0);
+            eje.getWorldDirection(pivotAxes);
+            brazo.rotateOnWorldAxis(pivotAxes, angulo);
+        }
+    }
+
+    rotarAntebrzoY(angulo)
+    {
+        var brazo = this.malla.getObjectById(this.baseID + 1);
+        var nuevoAngulo = angulo + this.giroAntebrazoY;
+        if (nuevoAngulo < this.giroAntebrazoYLim.x || nuevoAngulo > this.giroAntebrazoYLim.y) 
+        {
+            console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación del antebrazoY");
+            return;
+        }
+        else
+        {
+            console.info("AntebrazoY rotado " + angulo + " radianes. Nuevo ángulo: " + nuevoAngulo);
+            this.giroAntebrazoY = nuevoAngulo;
+            var rotula = brazo.getObjectById(brazo.id + 3);
+            var antebrazo = brazo.getObjectById(brazo.id + 4);
+
+            var rotZ = new THREE.Vector3(0,0,0);
+            var rotY = new THREE.Vector3(0,0,0);
+            var rotX = new THREE.Vector3(0,0,0);
+            var rotMatrix = new THREE.Matrix4();
+            rotMatrix.extractRotation( rotula.matrix );
+            rotMatrix.extractBasis(rotX, rotY, rotZ);
+
+            antebrazo.rotateOnWorldAxis(rotY, angulo);
+        }
+    }
+
+    rotarAntebrzoZ(angulo)
+    {
+        var brazo = this.malla.getObjectById(this.baseID + 1);
+        var nuevoAngulo = angulo + this.giroAntebrazoZ;
+        if (nuevoAngulo < this.giroAntebrazoZLim.x || nuevoAngulo > this.giroAntebrazoZLim.y) 
+        {
+            console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación del antebrazoZ");
+            return;
+        }
+        else
+        {
+            console.info("AntebrazoZ rotado " + angulo + " radianes. Nuevo ángulo: " + nuevoAngulo);
+            this.giroAntebrazoZ = nuevoAngulo;
+            var rotula = brazo.getObjectById(brazo.id + 3);
+            var antebrazo = brazo.getObjectById(brazo.id + 4);
+            var pivotAxes = new THREE.Vector3(0,0,0);
+            // World direction nos devuelve el ejeZ
+            rotula.getWorldDirection(pivotAxes);
+            antebrazo.rotateOnWorldAxis(pivotAxes, angulo);
+        }
+    }
+
+    rotarPinza(angulo)
+    {
+        var nuevoAngulo = angulo + this.giroPinza;
+        if (nuevoAngulo < this.giroPinzaLim.x || nuevoAngulo > this.giroPinzaLim.y) 
+        {
+            console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación de la pinza");
+            return;
+        }
+        else
+        {
+            var mano = this.malla.getObjectById(this.baseID + 11);
+            console.info("Pinza rotada " + angulo + " radianes. Nuevo ángulo: " + nuevoAngulo);
+            this.giroPinza = nuevoAngulo;
+            var palma = mano.getObjectById(mano.id + 1);
+            var pivotAxes = new THREE.Vector3(0,0,0);
+            palma.getWorldDirection(pivotAxes);
+            mano.rotateOnWorldAxis(pivotAxes, angulo);
+        }
+    }
+
+    regularPinza(angulo)
+    {
+        var nuevoAngulo = angulo + this.cierrePinzas;
+        if (nuevoAngulo < this.cierrePinzasLim.x || nuevoAngulo > this.cierrePinzasLim.y) 
+        {
+            console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación de la pinza");
+            return;
+        }
+        else
+        {
+            var mano = this.malla.getObjectById(this.baseID + 11);
+            console.info("Pinzas ajustadas en " + angulo + " radianes de apertura. Nuevo ángulo: " + nuevoAngulo);
+            this.cierrePinzas = nuevoAngulo;
+            var palma = mano.getObjectById(mano.id + 1);
+            var pinzaIzq = mano.getObjectById(mano.id + 2);
+            var pinzaDer = mano.getObjectById(mano.id + 3);
+
+            var rotZ = new THREE.Vector3(0,0,0);
+            var rotY = new THREE.Vector3(0,0,0);
+            var rotX = new THREE.Vector3(0,0,0);
+            var rotMatrix = new THREE.Matrix4();
+            rotMatrix.extractRotation( palma.matrix );
+            rotMatrix.extractBasis(rotX, rotY, rotZ);
+
+            pinzaIzq.rotateOnWorldAxis(rotY, angulo);
+            pinzaDer.rotateOnWorldAxis(rotY, -angulo);
         }
     }
 }
 
-
-// Acciones
+// Acciones: Desde init se arranca todo
 init();
-loadScene();
-render();
 
 /*
 * Construimos la cámara
@@ -308,6 +422,42 @@ function setCameras(ar)
 }
 
 /*
+* Inicialización de la interfaz
+*/
+function setUpGui()
+{
+    // Definicion de los controles
+	effectController = {
+		giroBase: 0, // Valores iniciales
+		giroBrazo: 0,
+		giroAntebrazoY: 0,
+		giroAntebrazoZ: 0,
+		giroPinza: 0,
+		aperturaPinza: 0
+	};
+
+	// Creacion interfaz
+	var gui = new dat.GUI();
+
+	// Construccion del menu
+    var h = gui.addFolder("Control Robot");
+    //                      Nombre en el dict       Min     Max     Delta   Nombre Visible
+    var giroBaseLS = h.add(effectController, "giroBase",             -180,   180,    1).name("Giro Base");
+	var giroBrazoLS = h.add(effectController, "giroBrazo", -45, 45, 0.5).name("Giro Brazo");
+	var giroAntebrazoYLS = h.add(effectController, "giroAntebrazoY", -180, 180, 1).name("Giro AntebrazoY");
+	var giroAntebrazoZLS = h.add(effectController, "giroAntebrazoZ", -90, 90, 1).name("Giro AntebrazoZ");
+	var giroPinzaLS = h.add(effectController, "giroPinza", -40, 220, 1).name("Giro Pinzas");
+    var aperturaPinzaLS = h.add(effectController, "aperturaPinza", 0, 15, 0.1).name("Apertura Pinzas");
+    
+    giroBaseLS.onChange(function (angulo) { giroBaseFlag = degreesToRadians(angulo); });
+    giroBrazoLS.onChange(function (angulo) { giroBrazoFlag = degreesToRadians(angulo); });
+    giroAntebrazoYLS.onChange(function (angulo) { giroAntebrazoYFlag = degreesToRadians(angulo); });
+    giroAntebrazoZLS.onChange(function (angulo) { giroAntebrazoZFlag = degreesToRadians(angulo); });
+    giroPinzaLS.onChange(function (angulo) { giroPinzaFlag = degreesToRadians(angulo); });
+    aperturaPinzaLS.onChange(function (angulo) { aperturaPinzaFlag = degreesToRadians(angulo); });
+}
+
+/*
 * Crear el motor, la escena y la camara
 */
 function init() {
@@ -327,8 +477,17 @@ function init() {
     var ar = window.innerWidth / window.innerHeight;
     setCameras(ar);
 
+    // Interfaz Gráfica de Usuario
+    setUpGui();
+
     // Eventos
     window.addEventListener('resize', updateAspectRatio);
+
+    // Carga de la escena
+    loadScene();
+
+    // Inicio del ciclo de renderizado
+    render();
 }
 
 /*
@@ -354,9 +513,17 @@ function loadScene() {
         }
     }
 
-    var robot = new Robot(materialDefault);
+    robot = new Robot(materialDefault);
     // Para centrarlo sobre los vértices del plano de forma similar a la imagen de muestra
     robot.translate(-50, 0, -50);
+    
+    // TESTS
+    //robot.rotarBase(-pi/2);
+    //robot.rotarBrazo(pi/7);
+    //robot.rotarAntebrzoY(pi/6);
+    //robot.rotarAntebrzoZ(pi/6);
+    //robot.rotarPinza(-pi/4);
+    //robot.regularPinza(pi/24);
 
     scene.add(robot.malla);
     scene.add(superplano);
@@ -372,16 +539,44 @@ function updateAspectRatio() {
     camera.aspect = ar;
     // Se ha variado el volumen de la vista
     camera.updateProjectionMatrix();
-
-    // La minicámara debe conservar su aspecto
-    //miniCam.aspect = 1;
-    //camera.updateProjectionMatrix();
 }
 
 /*
 * Cambios entre frames. En esta ocasión, al no haber animaciones, no es necesaria
 */
-function update() {}
+function update()
+{
+    if (giroBaseFlag)
+    {
+        robot.rotarBase(giroBaseFlag - robot.giroBase);
+        giroBaseFlag = 0;
+    }
+    if (giroBrazoFlag)
+    {
+        robot.rotarBrazo(giroBrazoFlag - robot.giroBrazo);
+        giroBrazoFlag = 0;
+    }
+    if (giroAntebrazoYFlag)
+    {
+        robot.rotarAntebrzoY(giroAntebrazoYFlag - robot.giroAntebrazoY);
+        giroAntebrazoYFlag = 0;
+    }
+    if (giroAntebrazoZFlag)
+    {
+        robot.rotarAntebrzoZ(giroAntebrazoZFlag - robot.giroAntebrazoZ);
+        giroAntebrazoZFlag = 0;
+    }
+    if (giroPinzaFlag)
+    {
+        robot.rotarPinza(giroPinzaFlag - robot.giroPinza);
+        giroPinzaFlag = 0;
+    }
+    if (aperturaPinzaFlag)
+    {
+        robot.regularPinza(aperturaPinzaFlag - robot.cierrePinzas);
+        aperturaPinzaFlag = 0;
+    }
+}
 
 /*
 * Función a cargo de dibujar cada frame
@@ -403,3 +598,7 @@ function render() {
     renderer.setViewport(5, 5, min/4, min/4);
     renderer.render( scene, miniCam );
 }
+
+// TODO
+// -> Añadir controles de flechas para mover la base
+// Añadir botones para desactivar los orbitcontrols y para mostrar los stats
