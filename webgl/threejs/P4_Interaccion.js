@@ -17,8 +17,14 @@ var renderer, scene, camera;
 var cameraController;
 // los efectos
 var effectController;
+// La configuración
+var settingsController;
 // los controles
 var domEvents, keyboard;
+// El rendimiento
+var stats;
+// El tiempo
+var clock;
 
 // Giros Flags
 var giroBaseFlag, giroBrazoFlag, giroAntebrazoYFlag, giroAntebrazoZFlag, giroPinzaFlag, aperturaPinzaFlag;
@@ -200,6 +206,7 @@ function robotMesh(material)
 
     robot.add(base);                        //console.log(base.id);
     base.add(brazo);                        //console.log(brazo.id);
+    base.rotateY(-pi/2);
     brazo.add(eje);                         //console.log(eje.id);
     brazo.add(esparrago);                   //console.log(esparrago.id);
     brazo.add(rotula);                      //console.log(rotula.id);
@@ -248,11 +255,11 @@ class Robot
         this.malla.translateZ(z);
     }
 
-    andar(desp)
+    andar(desplazamiento)
     {
-        this.malla.translateX(desp.x);
-        this.malla.translateZ(desp.y);
-        this.desp += desp;
+        this.malla.translateX(desplazamiento.x);
+        this.malla.translateZ(desplazamiento.y);
+        this.desp += desplazamiento;
     }
 
     rotarBase(angulo)
@@ -403,13 +410,14 @@ function setCameras(ar)
 
     // Perspectiva
     camera = new THREE.PerspectiveCamera( 50, ar, 0.1, 1500);
-	camera.position.set(200, 250, 175);
+	camera.position.set(-275, 250, -250);
 
     // El controlador de la cámara recibe como parámetros la propia cámara y el canvas
     cameraController = new THREE.OrbitControls(camera, render.domElement);
     camera.lookAt(puntoInteres); // Debe ir después de la inicialización de los controladores para evitar reseteos
     cameraController.target.set(puntoInteres.x, puntoInteres.y, puntoInteres.z);
     cameraController.enableKeys = false;
+    cameraController.enableRotate = false;
 
     // Ortográfica cenital (minicámara)
     miniCam = new THREE.OrthographicCamera(l, r, t, b, n, f);
@@ -430,13 +438,15 @@ function setCameras(ar)
 function setUpGui()
 {
     // Definicion de los controles
-	effectController = {
+    effectController =
+    {
 		giroBase: 0, // Valores iniciales
 		giroBrazo: 0,
 		giroAntebrazoY: 0,
 		giroAntebrazoZ: 0,
 		giroPinza: 0,
-		aperturaPinza: 0
+        aperturaPinza: 0,
+        velocidad: 50
 	};
 
 	// Creacion interfaz
@@ -451,13 +461,79 @@ function setUpGui()
 	var giroAntebrazoZLS = h.add(effectController, "giroAntebrazoZ", -90, 90, 1).name("Giro AntebrazoZ");
 	var giroPinzaLS = h.add(effectController, "giroPinza", -40, 220, 1).name("Giro Pinzas");
     var aperturaPinzaLS = h.add(effectController, "aperturaPinza", 0, 15, 0.1).name("Apertura Pinzas");
+    var velocidadLS = h.add(effectController, "velocidad", 10, 200, 1).name("Velocidad");
     
-    giroBaseLS.onChange(function (angulo) { giroBaseFlag = degreesToRadians(angulo); });
-    giroBrazoLS.onChange(function (angulo) { giroBrazoFlag = degreesToRadians(angulo); });
-    giroAntebrazoYLS.onChange(function (angulo) { giroAntebrazoYFlag = degreesToRadians(angulo); });
-    giroAntebrazoZLS.onChange(function (angulo) { giroAntebrazoZFlag = degreesToRadians(angulo); });
-    giroPinzaLS.onChange(function (angulo) { giroPinzaFlag = degreesToRadians(angulo); });
-    aperturaPinzaLS.onChange(function (angulo) { aperturaPinzaFlag = degreesToRadians(angulo); });
+    giroBaseLS.onChange(function (angulo) 
+    { 
+        giroBaseFlag = degreesToRadians(angulo);
+        renderer.domElement.focus(); // Se requiere para que siga aceptando la entrada del teclado
+    });
+    giroBrazoLS.onChange(function (angulo) 
+    { 
+        giroBrazoFlag = degreesToRadians(angulo); 
+        renderer.domElement.focus(); 
+    });
+    giroAntebrazoYLS.onChange(function (angulo) 
+    {
+        giroAntebrazoYFlag = degreesToRadians(angulo); 
+        renderer.domElement.focus(); 
+    });
+    giroAntebrazoZLS.onChange(function (angulo)
+    {
+        giroAntebrazoZFlag = degreesToRadians(angulo);
+        renderer.domElement.focus(); 
+    });
+    giroPinzaLS.onChange(function (angulo)
+    {
+        giroPinzaFlag = degreesToRadians(angulo);
+        renderer.domElement.focus(); 
+    });
+    aperturaPinzaLS.onChange(function (angulo) 
+    {
+        aperturaPinzaFlag = degreesToRadians(angulo);
+        renderer.domElement.focus(); 
+    });
+    velocidadLS.onChange(function (newVel) { renderer.domElement.focus(); });
+
+    settingsController =
+    {
+        panEnabled: true,
+        zoomEnabled: true,
+        orbitEnabled: false,
+        showStats: false,
+        showTopView: false
+    }
+
+
+    var h2 = gui.addFolder("Opciones Globales");
+    var panEnabledLS = h2.add(settingsController, "panEnabled").name("Pan Habilitado");
+    var zoomEnabledLS = h2.add(settingsController, "zoomEnabled").name("Zoom Habilitado");
+    var orbitEnabledLS = h2.add(settingsController, "orbitEnabled").name("Órbita Habilitada");
+    var showStatsLS = h2.add(settingsController, "showStats").name("Mostrar Rendimiento");
+    h2.add(settingsController, "showTopView").name("Mostrar Cenital");
+
+    panEnabledLS.onChange(function (habilitado) 
+    {
+        cameraController.enablePan = habilitado;
+        renderer.domElement.focus(); 
+    });
+    zoomEnabledLS.onChange(function (habilitado) 
+    {
+        cameraController.enableZoom = habilitado;
+        renderer.domElement.focus(); 
+    });
+    orbitEnabledLS.onChange(function (habilitado) 
+    {
+        cameraController.enableRotate = habilitado;
+        renderer.domElement.focus(); 
+    });
+    showStatsLS.onChange(function (habilitado) 
+    {
+        if (habilitado) stats.showPanel(0);
+        else stats.showPanel(-1);
+        renderer.domElement.focus(); 
+    });
+
 }
 
 /*
@@ -486,9 +562,19 @@ function init() {
     // Controles
     domEvents = new THREEx.DomEvents(camera, renderer.domElement);
     keyboard = new THREEx.KeyboardState(renderer.domElement);
+    renderer.domElement.setAttribute("tabIndex", "0");
+    renderer.domElement.focus();
+    
+    // Seguimiento del rendimiento
+    stats = new Stats();
+    stats.showPanel( -1 ); // 0: fps, 1: ms, 2: mb, 3+: custom 
+    document.body.appendChild( stats.dom );
 
     // Eventos
     window.addEventListener('resize', updateAspectRatio);
+
+    // Controlar el tiempo
+    clock = new THREE.Clock(true);
 
     // Carga de la escena
     loadScene();
@@ -553,6 +639,7 @@ function updateAspectRatio() {
 */
 function update()
 {
+    stats.begin();
     if (giroBaseFlag)
     {
         robot.rotarBase(giroBaseFlag - robot.giroBase);
@@ -583,6 +670,31 @@ function update()
         robot.regularPinza(aperturaPinzaFlag - robot.cierrePinzas);
         aperturaPinzaFlag = 0;
     }
+
+    var delta = clock.getDelta();
+    var vel = effectController.velocidad;
+    if( keyboard.pressed('left') )
+    {
+        robot.andar(new THREE.Vector2(vel * delta, 0));
+        console.info("Desplazamiento hacia la izquierda");
+    }
+    else if( keyboard.pressed('right') )
+    {
+        robot.andar(new THREE.Vector2(-vel * delta, 0));
+        console.info("Desplazamiento hacia la derecha");
+    }
+    if( keyboard.pressed('down') )
+    {
+        robot.andar(new THREE.Vector2(0, -vel * delta));
+        console.info("Desplazamiento hacia abajo");
+    }
+    else if( keyboard.pressed('up') )
+    {
+        robot.andar(new THREE.Vector2(0, vel * delta));
+        console.info("Desplazamiento hacia arriba");
+    }
+
+    stats.end();
 }
 
 /*
@@ -599,14 +711,16 @@ function render() {
     renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
     renderer.render( scene, camera );
 
-    // El lado de la mionicámara es una cuarta parte del lado más pequeño de la ventana
-    var min = Math.min(window.innerHeight, window.innerWidth);
-    // La minicámara debe permanecer en la parte superior izquierda de la ventana
-    renderer.setViewport(5, 5, min/4, min/4);
-    renderer.render( scene, miniCam );
+    if (settingsController.showTopView)
+    {
+        // El lado de la minicámara es una cuarta parte del lado más pequeño de la ventana
+        var min = Math.min(window.innerHeight, window.innerWidth);
+        // La minicámara debe permanecer en la parte superior izquierda de la ventana
+        renderer.setViewport(5, 5, min/4, min/4);
+        renderer.render( scene, miniCam );
+    }
 }
 
 // TODO
-// -> Añadir controles de flechas para mover la base
 // -> Añadir botones para desactivar los orbitcontrols y para mostrar los stats
-// Revisar rotaciones que causan problemas, como rotarPinzas
+// -> Organizar código (sobretodo init() y setUpGui())
