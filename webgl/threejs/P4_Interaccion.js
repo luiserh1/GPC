@@ -39,6 +39,9 @@ var n = -200, f = 800;
 // El robot a manejar
 var robot;
 
+// Variable para depurar
+var rotaAux = 1.0;
+
 function degreesToRadians(degrees) { return degrees * (pi/180); }
 
 /*
@@ -269,13 +272,14 @@ class Robot
         if (nuevoAngulo < this.giroBaseLim.x || nuevoAngulo > this.giroBaseLim.y) 
         {
             console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación de la base");
-            return;
+            return false;
         }
         else
         {
             console.info("Base rotada " + angulo + " radianes. Nuevo ángulo: " + nuevoAngulo);
             this.giroBase = nuevoAngulo;
             base.rotateY(angulo);
+            return true;
         }
     }
 
@@ -286,7 +290,7 @@ class Robot
         if (nuevoAngulo < this.giroBrazoLim.x || nuevoAngulo > this.giroBrazoLim.y) 
         {
             console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación del brazo");
-            return;
+            return false;
         }
         else
         {
@@ -296,6 +300,7 @@ class Robot
             var pivotAxes = new THREE.Vector3(0,0,0);
             eje.getWorldDirection(pivotAxes);
             brazo.rotateOnWorldAxis(pivotAxes, angulo);
+            return true;
         }
     }
 
@@ -306,7 +311,7 @@ class Robot
         if (nuevoAngulo < this.giroAntebrazoYLim.x || nuevoAngulo > this.giroAntebrazoYLim.y) 
         {
             console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación del antebrazoY");
-            return;
+            return false;
         }
         else
         {
@@ -323,6 +328,7 @@ class Robot
             rotMatrix.extractBasis(rotX, rotY, rotZ);
 
             antebrazo.rotateOnWorldAxis(rotY, angulo);
+            return true;
         }
     }
 
@@ -333,7 +339,7 @@ class Robot
         if (nuevoAngulo < this.giroAntebrazoZLim.x || nuevoAngulo > this.giroAntebrazoZLim.y) 
         {
             console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación del antebrazoZ");
-            return;
+            return false;
         }
         else
         {
@@ -345,6 +351,7 @@ class Robot
             // World direction nos devuelve el ejeZ
             rotula.getWorldDirection(pivotAxes);
             antebrazo.rotateOnWorldAxis(pivotAxes, angulo);
+            return true;
         }
     }
 
@@ -354,7 +361,7 @@ class Robot
         if (nuevoAngulo < this.giroPinzaLim.x || nuevoAngulo > this.giroPinzaLim.y) 
         {
             console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación de la pinza");
-            return;
+            return false;
         }
         else
         {
@@ -362,9 +369,16 @@ class Robot
             console.info("Pinza rotada " + angulo + " radianes. Nuevo ángulo: " + nuevoAngulo);
             this.giroPinza = nuevoAngulo;
             var palma = mano.getObjectById(mano.id + 1);
-            var pivotAxes = new THREE.Vector3(0,0,0);
-            palma.getWorldDirection(pivotAxes);
-            mano.rotateOnWorldAxis(pivotAxes, angulo);
+
+            var rotZ = new THREE.Vector3(0,0,0);
+            var rotY = new THREE.Vector3(0,0,0);
+            var rotX = new THREE.Vector3(0,0,0);
+            var rotMatrix = new THREE.Matrix4();
+            rotMatrix.extractRotation( palma.matrix );
+            rotMatrix.extractBasis(rotX, rotY, rotZ);
+
+            mano.rotateOnWorldAxis(rotZ, angulo);
+            return true;
         }
     }
 
@@ -374,7 +388,7 @@ class Robot
         if (nuevoAngulo < this.cierrePinzasLim.x || nuevoAngulo > this.cierrePinzasLim.y) 
         {
             console.warn("La rotación no se ha efectuado porque sobrepasa límite de rotación de la pinza");
-            return;
+            return false;
         }
         else
         {
@@ -394,6 +408,7 @@ class Robot
 
             pinzaIzq.rotateOnWorldAxis(rotY, angulo);
             pinzaDer.rotateOnWorldAxis(rotY, -angulo);
+            return true;
         }
     }
 }
@@ -694,6 +709,11 @@ function update()
         console.info("Desplazamiento hacia arriba");
     }
 
+    /*if (!robot.rotarPinza(1 * rotaAux * delta))
+    {
+        rotaAux *= -1;
+    }*/
+
     stats.end();
 }
 
@@ -722,5 +742,4 @@ function render() {
 }
 
 // TODO
-// -> Añadir botones para desactivar los orbitcontrols y para mostrar los stats
 // -> Organizar código (sobretodo init() y setUpGui())
