@@ -519,7 +519,6 @@ function setUpGui()
         showTopView: false
     }
 
-
     var h2 = gui.addFolder("Opciones Globales");
     var panEnabledLS = h2.add(settingsController, "panEnabled").name("Pan Habilitado");
     var zoomEnabledLS = h2.add(settingsController, "zoomEnabled").name("Zoom Habilitado");
@@ -650,7 +649,7 @@ function updateAspectRatio() {
 }
 
 /*
-* Cambios entre frames. En esta ocasión, al no haber animaciones, no es necesaria
+* Cambios entre frames.
 */
 function update()
 {
