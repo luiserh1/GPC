@@ -113,7 +113,7 @@ function loadScene() {
         var coordenadas =
         [
             0*seg,0*seg,0*seg,      0*seg,4*seg,0*seg,          0*seg,4*seg,19*seg,
-            0*seg,0*seg,19*seg,     0*seg,1*seg,38*seg,         0*seg,3*seg,38*seg,
+            0*seg,0*seg,19*seg,     5*seg,1*seg,38*seg,         5*seg,3*seg,38*seg,
             15*seg,3*seg,38*seg,    15*seg,1*seg,38*seg,        20*seg,4*seg,19*seg,
             20*seg,0*seg,19*seg,    20*seg,4*seg,0*seg,         20*seg,0*seg,0*seg
         ];
@@ -123,7 +123,7 @@ function loadScene() {
            0,1,3,   3,1,2,  3,2,4,  4,2,5,
            2,1,10,  2,10,8, 5,2,8,  5,8,6,
            9,7,6,   9,6,8,  11,9,8, 11,8,10,
-           9,7,4,   9,4,3,  11,9,3, 11,3,0,
+           9,4,7,   9,3,4,  11,3,9, 11,0,3,
            7,4,5,   7,5,6,
            0,11,10, 0,10,1
         ];

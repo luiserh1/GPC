@@ -1,6 +1,6 @@
 /**
-*	Práctica GPC #4. Interacción
-*	La articulación, ¡que emoción!
+*	Práctica GPC #5. Iluminación y Materiales
+*	Arrojando luz sobre nuestra material existencia
 */
 "use strict"; // Ayuda a hacer un poco más estricto el tipado de las variables
 
@@ -12,6 +12,7 @@ var materialDebug = new THREE.MeshBasicMaterial({color:'white', wireframe:true})
 ////////////////////////
 // Imprescindibles
 var renderer, scene, camera;
+
 // Controladores de
 // la cámara
 var cameraController;
@@ -31,59 +32,29 @@ var giroBaseFlag, giroBrazoFlag, giroAntebrazoYFlag, giroAntebrazoZFlag, giroPin
 
 // Minicámara y sus atributos
 var miniCam;
-var r = 200; // ODIO JS. TOP YA ES ALGO Y NO AVISA DE NINGUNA FORMA. AHORA HE RENOMBRADO TODO
+var r = 200; 
 var t = 200;
 var l = -r;
 var b = -t;
 var n = -200, f = 800;
+
 // El robot a manejar
 var robot;
 
 // Variable para depurar
 var rotaAux = 1.0;
 
+// Luces
+var luzAmbiente, luzPuntual, luzDireccional, luzFocal;
+
+// Materiales
+var materialDefault, materialDebug, materialPlano, materialHabitacion, materialBase, materialEje,
+    materialEsparrago, materialRotula, materialDisco, materialNervio, materialPalma, materialPinza;
+
+///////////////
+// FUNCIONES //
+///////////////
 function degreesToRadians(degrees) { return degrees * (pi/180); }
-
-/*
-* Forma manual de crear y devolver la geometría de un plano. Existe ya la opción de generar geometrías de planos
-* en la biblioteca, pero es una buena forma de romper mano
-*/
-function planeMesh(lado, material)
-{
-    // Geometría vaciía
-    var geo = new THREE.Geometry();
-    var semilado = lado / 2;
-    // Distribuyendo las coordenadas de esta forma el pivote quedará en el centro
-    var coordenadas =
-        [semilado, 0, semilado,
-        -semilado, 0, semilado,
-        -semilado, 0, -semilado,
-        semilado, 0, -semilado];
-    // Vértices que conformarán los triángulos de las caras de la geometría, expresados en tripletas de coordenadas
-    var indices =
-    [
-        3,2,1, 3,0,1
-    ];
-
-    // Registramos los vértices
-    for (var i = 0; i < coordenadas.length; i += 3)
-    {
-        var ver = new THREE.Vector3(coordenadas[i], coordenadas[i+1], coordenadas[i+2]);
-        geo.vertices.push(ver);
-    }
-
-    // Registramos las caras
-    for (var i = 0; i < indices.length; i += 3)
-    {
-        var triangulo = new THREE.Face3(indices[i], indices[i+1], indices[i+2]);
-        // for (var j = 0; j < 3; j++) { }
-        geo.faces.push(triangulo);
-    }
-
-    // Creamos la malla del objeto
-    var plano = new THREE.Mesh(geo, material);
-    return plano;
-}
 
 /*
 * Devuelve la geometría de una pinza. Solo requiere el largo, pues el resto de medidas son proporcionales a esta.
@@ -136,7 +107,9 @@ function pinzaGeometry(length)
     pivotZ = vertexSum[2] / numVertex;
     // Finalmente, se centra el pivote moviendo la geometría de forma que este quede en (0,0,0)
     geo.applyMatrix( new THREE.Matrix4().makeTranslation( -pivotX, -pivotY, -pivotZ ) );
-    //console.log("Pivote de pinza: (" + pivotX + ", " + pivotY + ", "+ pivotZ + ")");
+    // Todo el proceso anterior relativo al picote podría realizarse con .normalize, a costo de las dimensiones de escala ya calculadas
+
+    geo.computeFaceNormals()
 
     return geo;
 }
@@ -144,7 +117,8 @@ function pinzaGeometry(length)
 /*
 * Devuelve una malla de robot de tamaño estándar con el material proporcionado.
 */
-function robotMesh(material)
+function robotMesh(materialBase, materialEje, materialEsparrago, materialRotula, materialDisco, materialNervio, materialPalma,
+    materialPinza)
 {   
     // Objeto raíz del que colgaran los componentes
     var robot = new THREE.Object3D();
@@ -157,7 +131,7 @@ function robotMesh(material)
     var geoPinza = pinzaGeometry(38);
 
     // El elemento más sencillo que cuelga del robot es la base
-    var base = new THREE.Mesh(geoCilindro.clone(), material);
+    var base = new THREE.Mesh(geoCilindro.clone(), materialBase);
     base.geometry.scale(50, 15, 50);
 
     // Las partes de súperpiezas como el brazo, antebrazo, mano etc. se definen con origen en (0,0,0) y después
@@ -165,25 +139,25 @@ function robotMesh(material)
     // BRAZO
     var brazo = new THREE.Object3D();
     var eje, esparrago, rotula;
-    eje = new THREE.Mesh(geoCilindro.clone(), material);
+    eje = new THREE.Mesh(geoCilindro.clone(), materialEje);
     eje.geometry.scale(20, 18, 20);
     eje.geometry.rotateX(pi/2);
-    esparrago = new THREE.Mesh(geoCubo.clone(), material);
+    esparrago = new THREE.Mesh(geoCubo.clone(), materialEsparrago);
     esparrago.geometry.scale(18, 120, 12);
     esparrago.geometry.translate(0, 60, 0);
-    rotula = new THREE.Mesh(geoesfera, material);
+    rotula = new THREE.Mesh(geoesfera, materialRotula);
     rotula.geometry.scale(20, 20, 20);
     rotula.geometry.translate(0, 120, 0);
 
     // ANTEBRAZO
     var antebrazo = new THREE.Object3D();
     var disco, nervios;
-    disco = new THREE.Mesh(geoCilindro.clone(), material);
+    disco = new THREE.Mesh(geoCilindro.clone(), materialDisco);
     disco.geometry.scale(22, 6, 22);
     nervios = [];
     for (var i = 0; i < 4; i++)
     {
-        nervios.push(new THREE.Mesh(geoCubo.clone(), material));
+        nervios.push(new THREE.Mesh(geoCubo.clone(), materialNervio));
         nervios[i].geometry.scale(4, 80, 4);
         var despX = 10 * (i < 2 ? 1 : -1);
         var despY = 46;
@@ -195,14 +169,14 @@ function robotMesh(material)
     // MANO 
     var mano = new THREE.Object3D();
     var palma, pinzaIz, pinzaDer;
-    palma = new THREE.Mesh(geoCilindro.clone(), material);
+    palma = new THREE.Mesh(geoCilindro.clone(), materialPalma);
     palma.geometry.scale(15, 40, 15);
     palma.geometry.rotateX(pi/2);
-    pinzaIz = new THREE.Mesh(geoPinza.clone(), material);
+    pinzaIz = new THREE.Mesh(geoPinza.clone(), materialPinza);
     pinzaIz.geometry.rotateZ(pi/2);
     pinzaIz.geometry.rotateY(pi/2);
     pinzaIz.geometry.translate(15, 1.5, 15);
-    pinzaDer = new THREE.Mesh(geoPinza.clone(), material);
+    pinzaDer = new THREE.Mesh(geoPinza.clone(), materialPinza);
     pinzaDer.geometry.rotateZ(pi/2);
     pinzaDer.geometry.rotateY(pi/2);
     pinzaDer.geometry.translate(15, 1.5, -15);
@@ -222,7 +196,7 @@ function robotMesh(material)
     }
     antebrazo.translateY(120);
     antebrazo.add(mano);                    //console.log("->"+mano.id);
-    mano.add(palma);                        //console.log(palma.id);
+    //mano.add(palma);                        //console.log(palma.id);
     mano.add(pinzaIz);                      //console.log(pinzaIz.id);
     mano.add(pinzaDer);                     //console.log(pinzaDer.id);
     mano.translateY(86);
@@ -235,9 +209,11 @@ function robotMesh(material)
 */
 class Robot
 {
-    constructor(material)
+    constructor(materialBase, materialEje, materialEsparrago, materialRotula, materialDisco, materialNervio, materialPalma,
+        materialPinza)
     {
-        this.malla = robotMesh(material);
+        this.malla = robotMesh(materialBase, materialEje, materialEsparrago, materialRotula, materialDisco,
+            materialNervio, materialPalma, materialPinza);
         this.baseID = this.malla.id + 1;
         this.desp = new THREE.Vector2(0, 0);
         this.giroBase = this.giroBrazo = this.giroAntebrazoY = this.giroAntebrazoZ = this.giroPinza = this.cierrePinzas = 0;
@@ -413,8 +389,63 @@ class Robot
     }
 }
 
-// Acciones: Desde init se arranca todo
-init();
+/*
+* Prepara los matetiales
+*/
+function setUpMaterials()
+{
+    materialDefault = new THREE.MeshBasicMaterial({color:'red', wireframe:true});
+
+    materialDebug = new THREE.MeshBasicMaterial({color:'white', wireframe:true});
+
+    materialPlano = new THREE.MeshBasicMaterial({color:'grey', wireframe:true});
+
+    materialHabitacion = new THREE.MeshBasicMaterial({color:'red', wireframe:true});
+
+    materialBase = new THREE.MeshBasicMaterial({color:'red', wireframe:false});
+
+    materialEje = new THREE.MeshBasicMaterial({color:'orange', wireframe:false});
+
+    materialEsparrago = new THREE.MeshBasicMaterial({color:'yellow', wireframe:false});
+
+    materialRotula = new THREE.MeshBasicMaterial({color:'green', wireframe:false});
+
+    materialDisco = new THREE.MeshBasicMaterial({color:'blue', wireframe:false});
+
+    materialNervio = new THREE.MeshBasicMaterial({color:'grey', wireframe:false});
+
+    materialPalma = new THREE.MeshBasicMaterial({color:'white', wireframe:false});
+
+    materialPinza = new THREE.MeshBasicMaterial({color:'black', wireframe:false});
+
+    
+}
+
+/*
+* Construimos las luces
+*/
+function setLights()
+{ 
+    // Luces
+    luzAmbiente = new THREE.AmbientLight(0xFFFFFF, 0.2);
+    scene.add( luzAmbiente );
+
+    luzPuntual = new THREE.PointLight(0xFFFFFF,0.5);
+    luzPuntual.position.set( -10, 10, -10 );
+    scene.add( luzPuntual );
+
+    luzDireccional = new THREE.DirectionalLight(0xFFFFFF,0.5);
+    luzDireccional.position.set(-10,5,10 );
+    scene.add(luzDireccional);
+
+    luzFocal = new THREE.SpotLight(0xFFFFFF,0.5);
+    luzFocal.position.set( 10,10,1 );
+    luzFocal.target.position.set(0,0,0);
+    luzFocal.angle = Math.PI/10;
+    luzFocal.penumbra = 0.2;
+    luzFocal.castShadow = true;
+    scene.add(luzFocal);
+}
 
 /*
 * Construimos la cámara
@@ -551,7 +582,7 @@ function setUpGui()
 }
 
 /*
-* Crear el motor, la escena y la camara
+* Función de arranque
 */
 function init() {
     // Motor de render
@@ -569,6 +600,12 @@ function init() {
     // Camara
     var ar = window.innerWidth / window.innerHeight;
     setCameras(ar);
+
+    // Luces
+    setLights();
+
+    // Materiales
+    setUpMaterials();
 
     // Interfaz Gráfica de Usuario
     setUpGui();
@@ -601,36 +638,25 @@ function init() {
 * Cargar la escena con objetos
 */
 function loadScene() {
-    // Materiales
-    // General
-    var materialDefault = new THREE.MeshBasicMaterial({color:'red', wireframe:true});
-    // Usado para ver mejor ciertas partes, no aparece en la versión final
-    var materialDebug = new THREE.MeshBasicMaterial({color:'white', wireframe:true}); 
-
     // Creando el plano de planos (vertices repetidos = No eficiente; Pero lo suficiente)
-    var superplano = new THREE.Object3D();
+    var geoPlano = new THREE.PlaneGeometry(100, 100);
+    var superplano = new THREE.Group();
     for (var i = 0; i < 10; i++)
     {
         for (var j = 0; j < 10; j++)
         {
-            var plano = planeMesh(100, materialDefault);
+            var plano = new THREE.Mesh(geoPlano, materialPlano);
             plano.position.x = i * 100 - 500;
             plano.position.z = j * 100 - 500;
+            plano.geometry.rotateX(degreesToRadians(22.5));
             superplano.add(plano);
         }
     }
 
-    robot = new Robot(materialDefault);
+    robot = new Robot(materialBase, materialEje, materialEsparrago, materialRotula, materialDisco, 
+        materialNervio, materialPalma, materialPinza);
     // Para centrarlo sobre los vértices del plano de forma similar a la imagen de muestra
     robot.translate(-50, 0, -50);
-    
-    // TESTS
-    //robot.rotarBase(-pi/2);
-    //robot.rotarBrazo(pi/7);
-    //robot.rotarAntebrzoY(pi/6);
-    //robot.rotarAntebrzoZ(pi/6);
-    //robot.rotarPinza(-pi/4);
-    //robot.regularPinza(pi/24);
 
     scene.add(robot.malla);
     scene.add(superplano);
@@ -740,5 +766,13 @@ function render() {
     }
 }
 
-// TODO
+//////////////
+// ACCIONES //
+//////////////
+// Desde init se arranca todo
+init();
+
+//////////
+// TODO //
+//////////
 // -> Organizar código (sobretodo init() y setUpGui())

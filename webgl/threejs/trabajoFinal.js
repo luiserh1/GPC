@@ -134,9 +134,10 @@ function tileBorderGeometry(RM, heigth)
 */
 class Map
 {
-    constructor(radius)
+    constructor(radius, centerNode)
     {
-        
+        this.radius = radius;
+        this.centerNode = centerNode;
     }
 }
 
@@ -149,6 +150,22 @@ class HexaTile
     {
         this.x = x;
         this.y = y;
+        this.unit = undefined;
+        this.building = undefined;
+        this.mesh = undefined;
+    }
+}
+
+class HexaNode
+{
+    constructor(upLeft, upRight, centerRight, bottomRight, bottomLeft, centerLeft)
+    {
+        this.upLeft = upLeft;
+        this.upRight = upRight;
+        this.centerRight = centerRight;
+        this.bottomRight = bottomRight;
+        this.bottomLeft = bottomLeft;
+        this.centerLeft = centerLeft;
     }
 }
 
@@ -234,8 +251,11 @@ function setUpCameras(ar)
 /*
 *   Cargar la escena con objetos (Principal)
 */
-function loadMainScene()
+function loadHexagonalMapScene(radius)
 {
+    scene = new THREE.Scene();
+    map = {}; // TODO enums, primero pos y luego mesh 
+
     // Materiales
     // General
     var materialDefault = new THREE.MeshBasicMaterial({color:'red', wireframe:true});
@@ -243,7 +263,6 @@ function loadMainScene()
     var materialBorder = new THREE.MeshBasicMaterial({color:'orange', wireframe:false});
 
     // Cargando el mapa
-    var radius = 10;
     var tileRadius = 1;
     var tileHeigth = 1;
     var tileMargin = tileRadius / 10;
@@ -255,6 +274,8 @@ function loadMainScene()
     var hexaMesh = new THREE.Mesh(tileGeo, materialTile);
     var hexaBorderMesh = new THREE.Mesh(tileBorderGeo, materialBorder);
     var tileGroup = new THREE.Group();
+    console.error(hexaMesh.type);
+    console.error(tileGroup.type);
     tileGroup.add(hexaMesh);
     tileGroup.add(hexaBorderMesh);
     map.add(tileGroup);
@@ -277,8 +298,7 @@ function loadMainScene()
                                             i * (tileRadius * Math.sqrt(3) + tileMargin) * Math.cos(nextAngle));
             var tilePos = new THREE.Vector3();
             tileGroup.getWorldPosition(tilePos);
-            var hexasPerSide = i+1;
-            for (var k = 0; k < hexasPerSide; k++)
+            for (var k = 1; k < i; k++)
             {
                 var interTileGroup = tileGroup.clone(true);
                 
@@ -337,6 +357,33 @@ function render() {
     renderer.render( scene, camera );
 }
 
+function animateIncrementalRendering(percent)
+{
+    // OJO
+    //var protoScene = scene.clone();
+    var protoScene = new THREE.Scene();
+
+    var objectsToRender = [];
+    var elementsToAnalyze = [scene];
+    for (let element of elementsToAnalyze)
+    {
+        if (element.type == "Group" || element.type == "Object3D")
+            for (let child of element.children) 
+                elementsToAnalyze.push(child);
+        else
+            objectsToRender.push(element);
+    }
+
+    var objPercent = percent *  1.2;
+    if (objPercent > 1) objPercent = 1;
+    var objectsToRender = Math.ceil(objPercent * objectsToRender.length);
+    for (let obj of objectsToRender)
+    {
+        var facesToRender = Math.ceil(percent * obj.geometry.faces.length);
+
+    }
+}
+
 function init()
 {
     // Motor de render
@@ -347,9 +394,6 @@ function init()
     renderer.autoClear = false;
     // El canvas pasa a estar asociado al contenedor definido en el documento HTML
     document.getElementById('container').appendChild(renderer.domElement);
-
-    // Escena
-    scene = new THREE.Scene();
 
     // Camara
     var ar = window.innerWidth / window.innerHeight;
@@ -376,7 +420,7 @@ function init()
     clock = new THREE.Clock(true);
 
     // Carga de la escena principal
-    loadMainScene();
+    loadHexagonalMapScene(5);
 
     // Inicio del ciclo de renderizado
     render();
