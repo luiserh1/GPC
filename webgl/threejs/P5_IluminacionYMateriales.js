@@ -180,7 +180,6 @@ function robotMesh(materialBase, materialEje, materialEsparrago, materialRotula,
     pinzaDer.geometry.rotateZ(pi/2);
     pinzaDer.geometry.rotateY(pi/2);
     pinzaDer.geometry.translate(15, 1.5, -15);
-
     robot.add(base);                        //console.log(base.id);
     base.add(brazo);                        //console.log(brazo.id);
     base.rotateY(-pi/2);
@@ -196,10 +195,29 @@ function robotMesh(materialBase, materialEje, materialEsparrago, materialRotula,
     }
     antebrazo.translateY(120);
     antebrazo.add(mano);                    //console.log("->"+mano.id);
-    //mano.add(palma);                        //console.log(palma.id);
+    mano.add(palma);                        //console.log(palma.id);
     mano.add(pinzaIz);                      //console.log(pinzaIz.id);
     mano.add(pinzaDer);                     //console.log(pinzaDer.id);
     mano.translateY(86);
+
+    esparrago.castShadow = true;
+    esparrago.receiveShadow = true;
+    eje.castShadow = true;
+    eje.receiveShadow = true;
+    rotula.castShadow = true;
+    rotula.receiveShadow = true;
+    disco.castShadow = true;
+    disco.receiveShadow = true;
+    for (var i = 0; i < 4; i++ ){
+        nervios[i].castShadow = true;
+        nervios[i].receiveShadow = true;
+    }
+    palma.castShadow = true;
+    palma.receiveShadow = true;
+    pinzaIz.castShadow = true;
+    pinzaIz.receiveShadow = true;
+    pinzaDer.castShadow = true;
+    pinzaDer.receiveShadow = true;
 
     return robot;
 }
@@ -394,31 +412,125 @@ class Robot
 */
 function setUpMaterials()
 {
+    var texturaPlano, texturaBase, texturaEje, texturaEsparrago, texturaRotula,
+        texturaDisco, texturaNervio, texturaPalma;
+
+    var loader = new THREE.TextureLoader();
+
+    // Texturas
+	var path = "images/";
+	texturaPlano = new loader.load(
+        // resource URL
+        path+'pisometal_1024x1024.jpg',
+        
+        // onLoad callback
+        function ( texture )
+        {
+            texture.magFilter = THREE.LinearFilter;
+            texture.minFilter = THREE.LinearFilter;
+            texture.repeat.set(4, 4);
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        },
+        
+        // onProgress callback currently not supported
+        undefined,
+        
+        // onError callback
+        function ()
+        {
+            console.error("Ha ocurrido un error cargando la textura del suelo");
+        });
+
+    var texturaMetal = loader.load(
+        // resource URL
+        path+'metal_128x128.jpg',
+        
+        // onLoad callback -> Se eejcuta cuando se completa la carga
+        function ( texture )
+        {
+            texture.center.set(0.5, 0.5);
+            texture.rotation = pi/5;
+        },
+        
+        // onProgress callback currently not supported
+        undefined,
+        
+        // onError callback
+        function ()
+        {
+            console.error("Ha ocurrido un error cargando la textura del metal");
+        });
+
+    texturaBase = texturaEje = texturaEsparrago = texturaMetal;
+
+    var urlsHabitacion =    [path + "pond/posx.jpg", path + "pond/negx.jpg"
+                            ,path + "pond/posy.jpg", path + "pond/negy.jpg"
+                            ,path + "pond/posz.jpg", path + "pond/negz.jpg"]
+    var mapaEntorno = new THREE.CubeTextureLoader().load(urlsHabitacion);
+    mapaEntorno.format = THREE.RGBFormat;
+    
+    var texturaMadera = loader.load(
+        // resource URL
+        path+'wood512.jpg',
+        
+        // onLoad callback
+        function ( texture )
+        {
+            //texture.center.set(0.5, 0.5);
+            //texture.repeat.set(4, 4);
+            //texture.rotation = pi/2;
+        },
+        
+        // onProgress callback currently not supported
+        undefined,
+        
+        // onError callback
+        function ()
+        {
+            console.error("Ha ocurrido un error cargando la textura de la madera");
+        });
+
+    texturaDisco = texturaNervio = texturaPalma = texturaMadera;    
+
+    // Materiales
     materialDefault = new THREE.MeshBasicMaterial({color:'red', wireframe:true});
 
     materialDebug = new THREE.MeshBasicMaterial({color:'white', wireframe:true});
 
-    materialPlano = new THREE.MeshBasicMaterial({color:'grey', wireframe:true});
+    materialPlano = new THREE.MeshPhongMaterial({color:'white', map: texturaPlano,
+        specular: 0x222222, shininess: 50});
 
-    materialHabitacion = new THREE.MeshBasicMaterial({color:'red', wireframe:true});
+    materialBase = new THREE.MeshPhongMaterial({color:0xFFFFFF, map: texturaBase,
+        specular: 0x222222, shininess: 50});
 
-    materialBase = new THREE.MeshBasicMaterial({color:'red', wireframe:false});
+    materialEje = new THREE.MeshPhongMaterial({color:0xFFFFFF, map: texturaEje, 
+        specular: 0x222222, shininess: 50});
 
-    materialEje = new THREE.MeshBasicMaterial({color:'orange', wireframe:false});
-
-    materialEsparrago = new THREE.MeshBasicMaterial({color:'yellow', wireframe:false});
-
-    materialRotula = new THREE.MeshBasicMaterial({color:'green', wireframe:false});
-
-    materialDisco = new THREE.MeshBasicMaterial({color:'blue', wireframe:false});
-
-    materialNervio = new THREE.MeshBasicMaterial({color:'grey', wireframe:false});
-
-    materialPalma = new THREE.MeshBasicMaterial({color:'white', wireframe:false});
-
-    materialPinza = new THREE.MeshBasicMaterial({color:'black', wireframe:false});
-
+    materialEsparrago = new THREE.MeshPhongMaterial({color:0xFFFFFF, map: texturaEsparrago, 
+        specular: 0x222222, shininess: 50});
     
+    materialRotula = new THREE.MeshPhongMaterial({color:0xFFFFFF, envMap: mapaEntorno, 
+        specular: 0x222222, shininess: 50});
+
+    materialDisco = new THREE.MeshLambertMaterial({color:0xFFFFFF, map: texturaDisco});
+
+    materialNervio = new THREE.MeshLambertMaterial({color:0xFFFFFF, map: texturaNervio});
+
+    materialPalma = new THREE.MeshLambertMaterial({color:0xFFFFFF, map: texturaPalma});
+
+    materialPinza = new THREE.MeshLambertMaterial({color:0xAAAAAA});
+
+    // Habitacion
+	var shader = THREE.ShaderLib.cube;
+	shader.uniforms.tCube.value = mapaEntorno;
+
+	materialHabitacion = new THREE.ShaderMaterial({
+		fragmentShader: shader.fragmentShader,
+		vertexShader: shader.vertexShader,
+		uniforms: shader.uniforms,
+        side: THREE.BackSide
+    });
+
 }
 
 /*
@@ -427,24 +539,32 @@ function setUpMaterials()
 function setLights()
 { 
     // Luces
-    luzAmbiente = new THREE.AmbientLight(0xFFFFFF, 0.2);
-    scene.add( luzAmbiente );
+    luzAmbiente = new THREE.AmbientLight(0x222222, 0.6);
 
-    luzPuntual = new THREE.PointLight(0xFFFFFF,0.5);
-    luzPuntual.position.set( -10, 10, -10 );
-    scene.add( luzPuntual );
+    luzPuntual = new THREE.PointLight(0xEFA94A,0.2);
+    luzPuntual.position.set( 50, 150, 50 );
 
-    luzDireccional = new THREE.DirectionalLight(0xFFFFFF,0.5);
-    luzDireccional.position.set(-10,5,10 );
-    scene.add(luzDireccional);
+    //luzDireccional = new THREE.DirectionalLight(0xFFFFFF, 0.5);
+    //luzDireccional.position.set(-300, 50, 200 );
 
-    luzFocal = new THREE.SpotLight(0xFFFFFF,0.5);
-    luzFocal.position.set( 10,10,1 );
-    luzFocal.target.position.set(0,0,0);
+    luzFocal = new THREE.SpotLight(0xAAAAAA, 0.3);
+    luzFocal.position.set( -350, 700, -475 );
+    luzFocal.target.position.set(0,125,0);
     luzFocal.angle = Math.PI/10;
     luzFocal.penumbra = 0.2;
     luzFocal.castShadow = true;
-    scene.add(luzFocal);
+    // Sombras
+    luzFocal.shadow.camera.near = 1;
+    luzFocal.shadow.camera.far =  2500;
+    /*luzFocal.shadow.camera.position.set( 0, 0, 500 );
+    luzFocal.shadow.camera.lookAt(new THREE.Vector3(-50, 125, -50));
+    scene.add(new THREE.SpotLightHelper(luzFocal));
+    scene.add(new THREE.CameraHelper(luzFocal.shadow.camera));*/
+
+    scene.add( luzAmbiente );
+    scene.add( luzPuntual );
+    scene.add( luzDireccional );
+    scene.add( luzFocal );
 }
 
 /*
@@ -452,11 +572,11 @@ function setLights()
 */
 function setCameras(ar)
 {
-    var puntoInteres = new THREE.Vector3(-50, 125, -50);
+    var puntoInteres = new THREE.Vector3(-50, 115, -50);
 
     // Perspectiva
     camera = new THREE.PerspectiveCamera( 50, ar, 0.1, 1500);
-	camera.position.set(-275, 250, -250);
+	camera.position.set(-275, 125, -250);
 
     // El controlador de la cámara recibe como parámetros la propia cámara y el canvas
     cameraController = new THREE.OrbitControls(camera, render.domElement);
@@ -589,6 +709,7 @@ function init() {
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor( new THREE.Color(0x0000AA) );
+    renderer.shadowMap.enabled = true;
     // Esta opción requiere "Cleans" manuales
     renderer.autoClear = false;
     // El canvas pasa a estar asociado al contenedor definido en el documento HTML
@@ -639,27 +760,40 @@ function init() {
 */
 function loadScene() {
     // Creando el plano de planos (vertices repetidos = No eficiente; Pero lo suficiente)
-    var geoPlano = new THREE.PlaneGeometry(100, 100);
-    var superplano = new THREE.Group();
-    for (var i = 0; i < 10; i++)
-    {
-        for (var j = 0; j < 10; j++)
-        {
-            var plano = new THREE.Mesh(geoPlano, materialPlano);
-            plano.position.x = i * 100 - 500;
-            plano.position.z = j * 100 - 500;
-            plano.geometry.rotateX(degreesToRadians(22.5));
-            superplano.add(plano);
-        }
-    }
+    var geoPlano = new THREE.PlaneGeometry(1000, 1000, 10, 10);
+    geoPlano.rotateX(-pi/2);
+    geoPlano.receiveShadow = true;
+    geoPlano.castShadow = true;
+    var plano = new THREE.Mesh(geoPlano, materialPlano);
+    plano.castShadow = true;
+    plano.receiveShadow = true;
 
     robot = new Robot(materialBase, materialEje, materialEsparrago, materialRotula, materialDisco, 
         materialNervio, materialPalma, materialPinza);
     // Para centrarlo sobre los vértices del plano de forma similar a la imagen de muestra
-    robot.translate(-50, 0, -50);
+    //robot.translate(-100, 0, -100);
+    //robot.malla.castShadow = true;
+    //robot.malla.receiveShadow = true;
+    for (var i = 0; i < robot.malla.children.length; i++)
+    {
+        robot.malla.children[i].castShadow = true;
+        robot.malla.children[i].receiveShadow = true;
+    }
+
+    // La habitación
+    var geoCubo = new THREE.CubeGeometry(1000, 1000, 1000);
+    var habitacion = new THREE.Mesh(geoCubo, materialHabitacion);
+
+    // Prueba
+    var pruebaMesh = new THREE.Mesh(new THREE.CubeGeometry(100, 100, 100), materialPalma);
+    pruebaMesh.castShadow = true;
+    pruebaMesh.receiveShadow = true;
+    pruebaMesh.geometry.translate(0,50,0);
 
     scene.add(robot.malla);
-    scene.add(superplano);
+    //scene.add(pruebaMesh);
+    scene.add(plano);
+    scene.add(habitacion);
 }
 
 /*
