@@ -24,8 +24,8 @@ var stats;
 // El mapa general
 var map;
 
-// Material de depuración
-var materialDebug = new THREE.MeshBasicMaterial({color:'white', wireframe:true});
+// Materiales
+var materialDefault, materialTile, materialBorder, materialDebug;
 
 //////////////////////////////////////
 // FUNCIONES DE GEOMETRÍAS Y MALLAS //
@@ -146,20 +146,24 @@ class Map
 */
 class HexaTile
 {
-    constructor(x, y)
+    constructor(meshGroup, x, y)
     {
+        this.meshGroup = meshGroup;
         this.x = x;
         this.y = y;
         this.unit = undefined;
         this.building = undefined;
-        this.mesh = undefined;
     }
 }
 
+/*
+* Auxiliar structure to keep all the tiles conected
+*/
 class HexaNode
 {
-    constructor(upLeft, upRight, centerRight, bottomRight, bottomLeft, centerLeft)
+    constructor(hexaTile, upLeft, upRight, centerRight, bottomRight, bottomLeft, centerLeft)
     {
+        this.hexaTile = hexaTile;
         this.upLeft = upLeft;
         this.upRight = upRight;
         this.centerRight = centerRight;
@@ -229,6 +233,14 @@ function setUpGUI()
     });
 }
 
+function setUpMaterials()
+{
+    materialDefault = new THREE.MeshBasicMaterial({color:'red', wireframe:true});
+    materialTile = new THREE.MeshBasicMaterial({color:'green', wireframe:false});
+    materialBorder = new THREE.MeshBasicMaterial({color:'orange', wireframe:false});
+    materialDebug = new THREE.MeshBasicMaterial({color:'white', wireframe:true});
+}
+
 /*
 *   Inicializa todos los valores y componentes relativos a la(s) cámara(s)
 */
@@ -249,36 +261,42 @@ function setUpCameras(ar)
 }
 
 /*
-*   Cargar la escena con objetos (Principal)
+*   Loads the scene with objects. 
 */
 function loadHexagonalMapScene(radius)
 {
-    scene = new THREE.Scene();
-    map = {}; // TODO enums, primero pos y luego mesh 
+    // Reset
+    var targetScene = new THREE.Scene();
+    map = new Map(radius, undefined); // TODO enums, primero pos y luego mesh 
 
-    // Materiales
-    // General
-    var materialDefault = new THREE.MeshBasicMaterial({color:'red', wireframe:true});
-    var materialTile = new THREE.MeshBasicMaterial({color:'green', wireframe:false});
-    var materialBorder = new THREE.MeshBasicMaterial({color:'orange', wireframe:false});
+    if (radius < 1) return targetScene;
 
-    // Cargando el mapa
+    // Tiles' properties
     var tileRadius = 1;
     var tileHeigth = 1;
     var tileMargin = tileRadius / 10;
-    var map = new THREE.Group();
 
+    // The geometries are created according to the specified properties
     var tileBorderGeo = tileBorderGeometry(tileRadius * 1.02, tileHeigth * 1.02);
     var tileGeo = tileGeometry(tileRadius, tileHeigth);
 
+    // The central hexaTile
     var hexaMesh = new THREE.Mesh(tileGeo, materialTile);
     var hexaBorderMesh = new THREE.Mesh(tileBorderGeo, materialBorder);
+    // The tiles are a group of an hexagonal prism and the hexagonal border
     var tileGroup = new THREE.Group();
-    console.error(hexaMesh.type);
-    console.error(tileGroup.type);
     tileGroup.add(hexaMesh);
     tileGroup.add(hexaBorderMesh);
-    map.add(tileGroup);
+    // The nodes are created to keep all the map connected
+    var hexaTile = new HexaTile(tileGroup, 0, 0);
+    var node = new HexaNode(hexaTile, undefined, undefined, undefined, undefined, undefined, undefined);
+    map.centerNode = node;
+
+    // This variable is made of all the tileGroups of the map
+    var mapTilesGroup = new THREE.Group();
+    mapTilesGroup.add(tileGroup);
+
+    // if (radius > 1)
     for (var i = 1; i < radius; i++)
     {
         var angle = pi / 6;
@@ -307,19 +325,18 @@ function loadHexagonalMapScene(radius)
 
                 interTileGroup.applyMatrix( new THREE.Matrix4().makeTranslation(despX, 0, despZ));
 
-                map.add(interTileGroup);
+                mapTilesGroup.add(interTileGroup);
             }
 
-            map.add(tileGroup);
+            mapTilesGroup.add(tileGroup);
 
             angle += pi / 3;
         }
     }
-    console.info("Hay un total de " + map.children.length + " tiles")
+    console.info("Hay un total de " + mapTilesGroup.children.length + " tiles");
     
-    scene.add(map);
-    //scene.add(new THREE.AxesHelper(15));
-    console.info("Escena cargada");
+    targetScene.add(mapTilesGroup);
+    return targetScene;
 }
 
 /*
@@ -357,31 +374,68 @@ function render() {
     renderer.render( scene, camera );
 }
 
-function animateIncrementalRendering(percent)
+function animateIncrementalRendering(fullScene, percent)
 {
-    // OJO
-    //var protoScene = scene.clone();
-    var protoScene = new THREE.Scene();
-
-    var objectsToRender = [];
-    var elementsToAnalyze = [scene];
-    for (let element of elementsToAnalyze)
+    if (percent >= 100)
     {
-        if (element.type == "Group" || element.type == "Object3D")
+        scene = fullScene;
+        return;
+    }
+
+    scene = new THREE.Scene();
+    var superGeo = new THREE.Geometry();
+
+    var proportion = percent / 100.0;
+
+    //var geosToExtract = [];
+    var elementsToAnalyze = [fullScene];
+    var currentWorldPos = new THREE.Vector3(0, 0, 0);
+    var lastIndex = 0;
+
+    var allVertices = [], allFaces = [];
+    while (elementsToAnalyze.length > 0)
+    {
+        var element = elementsToAnalyze.pop();
+        if (element.type == "Group" || element.type == "Object3D" || element.type == "Scene")
             for (let child of element.children) 
+            {
                 elementsToAnalyze.push(child);
+            }
         else
-            objectsToRender.push(element);
+        {
+            //superGeo.merge(element.geometry);
+            currentWorldPos = element.getWorldPosition(currentWorldPos);
+            for (let ver of element.geometry.vertices)
+            {
+                allVertices.push(new THREE.Vector3(
+                    ver.x + currentWorldPos.x,
+                    ver.y + currentWorldPos.y,
+                    ver.z + currentWorldPos.z
+                ));
+            }
+            for (let face of element.geometry.faces)
+            {
+                allFaces.push(new THREE.Face3(
+                    face.a + lastIndex,
+                    face.b + lastIndex,
+                    face.c + lastIndex
+                ));
+            }
+            lastIndex = allVertices.length;
+        }
     }
 
-    var objPercent = percent *  1.2;
-    if (objPercent > 1) objPercent = 1;
-    var objectsToRender = Math.ceil(objPercent * objectsToRender.length);
-    for (let obj of objectsToRender)
-    {
-        var facesToRender = Math.ceil(percent * obj.geometry.faces.length);
+   
+    var renderedFaces = Math.ceil( proportion * allFaces.length );
+    console.log("Proporción: " + proportion + " Caras totales: " + renderedFaces);
+    for (var i = allFaces.length-1; i > allFaces.length-1-renderedFaces; i--)
+        superGeo.faces.push(allFaces[i]);
 
-    }
+    superGeo.vertices = allVertices;
+
+    console.log("Número de caras a renderizar: " + superGeo.faces.length + " de " + allFaces.length + " posibles");
+    var protoMesh = new THREE.Mesh(superGeo, materialDefault);
+    scene.add(protoMesh);
 }
 
 function init()
@@ -402,6 +456,9 @@ function init()
     // Interfaz Gráfica de Usuario
     setUpGUI();
 
+    // Materiales
+    setUpMaterials();
+
     // Controles
     domEvents = new THREEx.DomEvents(camera, renderer.domElement);
     keyboard = new THREEx.KeyboardState(renderer.domElement);
@@ -411,16 +468,15 @@ function init()
     // Seguimiento del rendimiento
     stats = new Stats();
     stats.showPanel( -1 ); // 0: fps, 1: ms, 2: mb, 3+: custom 
-    document.body.appendChild( stats.dom );
-
-    // Eventos
+    document.boullScen
     window.addEventListener('resize', updateAspectRatio);
 
     // Controlar el tiempo
     clock = new THREE.Clock(true);
 
     // Carga de la escena principal
-    loadHexagonalMapScene(5);
+    var fullScene = loadHexagonalMapScene(3);
+    animateIncrementalRendering(fullScene, 50);
 
     // Inicio del ciclo de renderizado
     render();
