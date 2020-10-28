@@ -25,21 +25,22 @@ var map;
 
 // Incremental loading
 // Percentage of loaded scene
-var loadPercent;
+var loadPercentWire, loadPercentMeshes, unloadPercentWire;
 // Objective scene
 var sceneObj;
 // Variables to speedUp process
-var allObjs, superGeo
+var allObjs, superGeo, sceneAnalysed = false;
 // And to store it
-var protoMesh, protoRoot;
-
+var protoMesh, protoRoot, lastFaceIndex, lastMeshIndex;
 
 // Materiales
 var materialDefault, materialTile, materialBorder, materialDebug, materialPlano, materialHabitacion, materialBase, materialEje,
     materialEsparrago, materialRotula, materialDisco, materialNervio, materialPalma, materialPinza;
-
 // Luces
 var luzAmbiente, luzPuntual, luzDireccional, luzFocal;
+
+// Debug
+var k = 0;
 
 //////////////////////////////////////
 // FUNCIONES DE GEOMETRÍAS Y MALLAS //
@@ -595,7 +596,7 @@ function setLights()
 
     scene.add( luzAmbiente );
     scene.add( luzPuntual );
-    scene.add( luzDireccional );
+    //scene.add( luzDireccional );
     scene.add( luzFocal );
 }
 
@@ -797,7 +798,7 @@ function loadHexagonalMapScene(radius)
     var hexaMesh = new THREE.Mesh(tileGeo, materialTile);
     var hexaBorderMesh = new THREE.Mesh(tileBorderGeo, materialBorder);
     // The tiles are a group of an hexagonal prism and the hexagonal border
-    var tileGroup = new THREE.Group();
+    var tileGroup = new THREE.Object3D();
     tileGroup.add(hexaMesh);
     tileGroup.add(hexaBorderMesh);
     // The nodes are created to keep all the map connected
@@ -806,7 +807,7 @@ function loadHexagonalMapScene(radius)
     map.centerNode = node;
 
     // This variable is made of all the tileGroups of the map
-    var mapTilesGroup = new THREE.Group();
+    var mapTilesGroup = new THREE.Object3D();
     mapTilesGroup.add(tileGroup);
 
     // if (radius > 1)
@@ -817,7 +818,7 @@ function loadHexagonalMapScene(radius)
         {
             hexaMesh = new THREE.Mesh(tileGeo, materialTile);
             hexaBorderMesh = new THREE.Mesh(tileBorderGeo, materialBorder);
-            tileGroup = new THREE.Group();
+            tileGroup = new THREE.Object3D();
             tileGroup.add(hexaMesh);
             tileGroup.add(hexaBorderMesh);
             tileGroup.translateX(i * (tileRadius * Math.sqrt(3) + tileMargin) * Math.sin(angle));
@@ -883,24 +884,32 @@ function update()
 	TWEEN.update();
 }
 
+var auxGeo = new THREE.Geometry();
 // TODO OPTIMIZE A LOT
 function incrementalLoad()
 {
-    if (loadPercent.val > 100)
+    k++;
+    if (unloadPercentWire.val > 100)
     {
         scene = sceneObj;
-         // Luces
+        // Luces
         setLights();
         return 1;
     }
 
-    scene = new THREE.Scene();
 
-    if (loadPercent.val < 0.001)
-        return 0;
-
-    if (!(allObjs && !superGeo))
+    if (!sceneAnalysed)
     {
+        scene = new THREE.Scene();
+
+        lastFaceIndex = 0;
+        lastMeshIndex = 0;
+        protoMesh = new THREE.Mesh(auxGeo, materialDefault);
+        protoRoot = new THREE.Group();
+        protoRoot.add(protoMesh);
+
+        scene.add(protoRoot);
+
         superGeo = new THREE.Geometry();
         allObjs = [];
     
@@ -924,52 +933,67 @@ function incrementalLoad()
                 superGeo.merge(element.geometry, element.parent.matrix); // TODO dejarlo como estaba
             }
         }
-        superGeo.mergeVertices();
+        //protoMesh.geometry.vertices = superGeo.vertices;
+        protoMesh.geometry.vertices = new Array(superGeo.vertices.length);
+        sceneAnalysed = true;
     }
-    
-    protoRoot = new THREE.Group();
-    if (loadPercent.val < 50)
-    {
-        var proportion = loadPercent.val / 50.0;
 
-        var renderedFaces = [];
+    if (loadPercentWire.val < 100)
+    {
+        var proportion = loadPercentWire.val / 100.0;
         var renderedFacesNum = Math.ceil( proportion * superGeo.faces.length );
-        for (var i = superGeo.faces.length-1; i > superGeo.faces.length - renderedFacesNum; i--)
-            renderedFaces.push(superGeo.faces[i]);
 
-        superGeo.faces = renderedFaces;
-        protoMesh = new THREE.Mesh(superGeo, materialDefault);
+        //var check1 = [];
+        //var check2 = [];
+        for (var i = lastFaceIndex; i < renderedFacesNum; i++)
+        {
+            var index = superGeo.faces.length-1 - i;
+            console.error(i, "|", index, " -> ", superGeo.faces[index].type);
+            var theFace = new THREE.Face3();
+            theFace.copy(superGeo.faces[index]);
+            protoMesh.geometry.faces.push(theFace);
+            protoMesh.geometry.vertices[theFace.a].copy(superGeo.vertices[theFace.a]);
+            protoMesh.geometry.vertices[theFace.b].copy(superGeo.vertices[theFace.b]);
+            protoMesh.geometry.vertices[theFace.c].copy(superGeo.vertices[theFace.c]);
+            //check1.push(superGeo.faces[superGeo.faces.length-1 - i]);
+            lastFaceIndex++;
+        }
+
+        /*for (var i = 0; i < superGeo.faces.length-1; i++) {
+            //protoMesh.geometry.faces.push(superGeo.faces[i]);
+        }*/
+
+        /*var index = check1.length-1;
+        if (index)
+            console.error("Para k = " + k + " e i = " + index + "\n" + check1[index].a + " VS " + check2[index].a + " VS " + superGeo.faces[superGeo.faces.length-1 - index].a
+                + "\nL1: " + check1.length + "\tL2: " + check2.length + "\tLsG: " + superGeo.faces.length);*/
+
     }
-    else if (loadPercent.val < 75)
+    else if (loadPercentMeshes.val < 100)
     {
-        protoMesh = new THREE.Mesh(superGeo, materialDebug);
-        var proportion = (loadPercent.val-50) / 25.0;
+
+        var proportion = (loadPercentMeshes.val) / 100.0;
         var numMeshes = Math.ceil( proportion * allObjs.length );
-        for (var i = allObjs.length-1; i > allObjs.length-numMeshes; i--)
+        for (var i = allObjs.length-lastMeshIndex-1; i > allObjs.length-numMeshes; i--)
         {
             protoRoot.add(allObjs[i]);
+            lastMeshIndex++;
         }
     }
-    else
+    else //if (unloadPercentWire.val < 100)
     {
-        var proportion = (loadPercent.val-75) / 25.0;
-
-        var renderedFaces = [];
-        var renderedFacesNum = Math.ceil( (1-proportion) * superGeo.faces.length );
-        for (var i = superGeo.faces.length-1; i > superGeo.faces.length - renderedFacesNum-1; i--)
-            renderedFaces.push(superGeo.faces[i]);
-
-        superGeo.faces = renderedFaces;
-        protoMesh = new THREE.Mesh(superGeo, materialDebug);
-        for (var i = 0; i < allObjs.length-1; i++)
+        var proportion = (unloadPercentWire.val) / 100.0;
+        var removedFacesNum = Math.ceil( proportion * superGeo.faces.length );
+        for (var i = 0; i < removedFacesNum - lastFaceIndex; i--)
         {
-            protoRoot.add(allObjs[i]);
+            //protoMesh.geometry.faces.pop();
+            protoMesh.geometry.faces = [];
+            lastFaceIndex++;
         }
-    }
-    
+    }   
 
-    protoRoot.add(protoMesh);
-    scene.add(protoRoot);
+    if (protoMesh.geometry.faces.length < 1)
+        return 0;
 
     return 0;
 }
@@ -1004,16 +1028,27 @@ function renderInc()
     else
         requestAnimationFrame(renderInc);
     draw();
-    console.info(loadPercent);
+    console.info(loadPercentWire.val + " - " + loadPercentMeshes.val + " - " + unloadPercentWire.val);
 }
 
 function animateIncrementalRendering()
 {
-    loadPercent = {val: 0};
-    var percentInc = new TWEEN.Tween( loadPercent ).to( {val: [0.0, 99.99, 85, 101]} /*Rango*/, 15000 /*Tiempo en ms*/);
-    percentInc.interpolation(TWEEN.Interpolation.Bezier);
-    percentInc.easing(TWEEN.Easing.Exponential.InOut);
-    percentInc.start();
+    loadPercentWire = {val: 0};
+    loadPercentMeshes = {val: 0};
+    unloadPercentWire = {val: 0};
+    var loadPercentWireInc = new TWEEN.Tween( loadPercentWire ).to( {val: [0.0, 97.99, 85, 101]} /*Rango*/, 7500 /*Tiempo en ms*/);
+    loadPercentWireInc.interpolation(TWEEN.Interpolation.Bezier);
+    loadPercentWireInc.easing(TWEEN.Easing.Exponential.InOut);
+    var loadPercentMeshesInc = new TWEEN.Tween( loadPercentMeshes ).to( {val: [0.0, 101]} /*Rango*/, 3500 /*Tiempo en ms*/);
+    loadPercentMeshesInc.interpolation(TWEEN.Interpolation.Bezier);
+    loadPercentMeshesInc.easing(TWEEN.Easing.Circular.Out);
+    var unloadPercentWireInc = new TWEEN.Tween( unloadPercentWire ).to( {val: [0.0, 75.99, 45, 101]} /*Rango*/, 2500 /*Tiempo en ms*/);
+    unloadPercentWireInc.interpolation(TWEEN.Interpolation.Bezier);
+    unloadPercentWireInc.easing(TWEEN.Easing.Quintic.Out);
+    
+    loadPercentWireInc.chain(loadPercentMeshesInc);
+    loadPercentMeshesInc.chain(unloadPercentWireInc);
+    loadPercentWireInc.start();
     renderInc();
 }
 
@@ -1051,7 +1086,7 @@ function init()
     window.addEventListener('resize', updateAspectRatio);
 
     // Carga de la escena principal y renderizado
-    sceneObj = loadHexagonalMapScene(5);
+    sceneObj = loadHexagonalMapScene(3);
     animateIncrementalRendering();
 }
 

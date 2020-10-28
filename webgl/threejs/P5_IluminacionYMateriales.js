@@ -572,11 +572,12 @@ function setLights()
 */
 function setCameras(ar)
 {
-    var puntoInteres = new THREE.Vector3(-50, 115, -50);
+    var puntoInteres = new THREE.Vector3(-0, 115, -0);
+    var puntoInteresCenit = new THREE.Vector3(0, 0, 0);
 
     // Perspectiva
     camera = new THREE.PerspectiveCamera( 50, ar, 0.1, 1500);
-	camera.position.set(-275, 125, -250);
+	camera.position.set(275, 225, 250);
 
     // El controlador de la cámara recibe como parámetros la propia cámara y el canvas
     cameraController = new THREE.OrbitControls(camera, render.domElement);
@@ -587,8 +588,8 @@ function setCameras(ar)
 
     // Ortográfica cenital (minicámara)
     miniCam = new THREE.OrthographicCamera(l, r, t, b, n, f);
-    miniCam.position.set(-50, 300, -50);
-    miniCam.lookAt(puntoInteres);
+    miniCam.position.set(-0, 300, -0);
+    miniCam.lookAt(puntoInteresCenit);
     miniCam.up = new THREE.Vector3(0, 0, -1);
 
     scene.add(camera);
@@ -847,22 +848,22 @@ function update()
 
     var delta = clock.getDelta();
     var vel = effectController.velocidad;
-    if( keyboard.pressed('left') )
+    if( keyboard.pressed('right') )
     {
         robot.andar(new THREE.Vector2(vel * delta, 0));
         console.info("Desplazamiento hacia la izquierda");
     }
-    else if( keyboard.pressed('right') )
+    else if( keyboard.pressed('left') )
     {
         robot.andar(new THREE.Vector2(-vel * delta, 0));
         console.info("Desplazamiento hacia la derecha");
     }
-    if( keyboard.pressed('down') )
+    if( keyboard.pressed('up') )
     {
         robot.andar(new THREE.Vector2(0, -vel * delta));
         console.info("Desplazamiento hacia abajo");
     }
-    else if( keyboard.pressed('up') )
+    else if( keyboard.pressed('down') )
     {
         robot.andar(new THREE.Vector2(0, vel * delta));
         console.info("Desplazamiento hacia arriba");
