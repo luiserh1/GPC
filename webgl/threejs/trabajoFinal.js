@@ -18,6 +18,8 @@ var cameraController;
 var domEvents, keyboard;
 // Controlador de la configuración y efectos del mapa
 var mapController;
+// Controlador de la configuración global
+var settingsController;
 // Controlador del rendimiento
 var stats;
 // El mapa general
@@ -581,15 +583,15 @@ class Building
 function setLights()
 { 
     // Luces
-    luzAmbiente = new THREE.AmbientLight(0x222222, 0.6);
+    luzAmbiente = new THREE.AmbientLight(0xFFFFFF, 0.6);
 
-    luzPuntual = new THREE.PointLight(0xEFA94A,0.2);
+    luzPuntual = new THREE.PointLight(0xFFFF00,0.2);
     luzPuntual.position.set( 50, 150, 50 );
 
-    luzFocal = new THREE.SpotLight(0xAAAAAA, 0.3);
+    luzFocal = new THREE.SpotLight(0xFFFFFF, 0.5);
     luzFocal.position.set( -350, 700, -475 );
     luzFocal.target.position.set(0,125,0);
-    luzFocal.angle = Math.PI/10;
+    luzFocal.angle = Math.PI/20;
     luzFocal.penumbra = 0.2;
     luzFocal.castShadow = true;
     // Sombras
@@ -618,7 +620,7 @@ function setUpGUI()
     var h = gui.addFolder("Configuración Mapa");
     // Configurar opciones
     // Variable que almacena la opción              Nombre dict    Nombre en dict        Min   Max    Delta   Nombre Visible
-    var radiusLS =                            h.add(mapController, "radius",             2,   7,     1).name("Radio");
+    var radiusLS =                            h.add(mapController, "radius",             2,   8,     1).name("Radio");
     var resetLS = h.add(mapController, "reset").name("Reconstruir");
     // Almacenar la opción en una variable permite configurar un <<listener>>
     // Lo cuál es imprescindible, pues necesitamos devolver el foco al canvas una vez terminada la configuración
@@ -635,6 +637,42 @@ function setUpGUI()
         renderer.domElement.focus();
         mapController.reset = false;
     });
+
+    settingsController =
+    {
+        panEnabled: false,
+        zoomEnabled: false,
+        orbitEnabled: true,
+        showStats: false
+    }
+
+    var h2 = gui.addFolder("Opciones Globales");
+    var panEnabledLS = h2.add(settingsController, "panEnabled").name("Pan Habilitado");
+    var zoomEnabledLS = h2.add(settingsController, "zoomEnabled").name("Zoom Habilitado");
+    var orbitEnabledLS = h2.add(settingsController, "orbitEnabled").name("Órbita Habilitada");
+    var showStatsLS = h2.add(settingsController, "showStats").name("Mostrar Rendimiento");
+
+    panEnabledLS.onChange(function (habilitado) 
+    {
+        cameraController.enablePan = habilitado;
+        renderer.domElement.focus(); 
+    });
+    zoomEnabledLS.onChange(function (habilitado) 
+    {
+        cameraController.enableZoom = habilitado;
+        renderer.domElement.focus(); 
+    });
+    orbitEnabledLS.onChange(function (habilitado) 
+    {
+        cameraController.enableRotate = habilitado;
+        renderer.domElement.focus(); 
+    });
+    showStatsLS.onChange(function (habilitado) 
+    {
+        if (habilitado) stats.showPanel(0);
+        else stats.showPanel(-1);
+        renderer.domElement.focus(); 
+    });
 }
 
 function setUpMaterials()
@@ -647,16 +685,16 @@ function setUpMaterials()
     materialBorder = new THREE.MeshBasicMaterial({color:'orange', wireframe:false});
     materialDebug = new THREE.MeshBasicMaterial({color:'white', wireframe:true});
 
-    var texturaPlano, texturaBase, texturaEje, texturaEsparrago, texturaRotula,
+    var texturaPlano, texturaBase, texturaEje, texturaEsparrago, texturaHierba,
         texturaDisco, texturaNervio, texturaPalma;
 
     var loader = new THREE.TextureLoader();
 
     // Texturas
 	var path = "images/";
-	texturaPlano = new loader.load(
+	texturaHierba = new loader.load(
         // resource URL
-        path+'pisometal_1024x1024.jpg',
+        path+'EntregableFinal/grass512x512.jpg',
         
         // onLoad callback
         function ( texture )
@@ -734,8 +772,10 @@ function setUpMaterials()
     texturaDisco = texturaNervio = texturaPalma = texturaMadera;    
 
     // Materiales
-    materialPlano = new THREE.MeshPhongMaterial({color:'white', map: texturaPlano,
+    materialPlano = new THREE.MeshPhongMaterial({color:'green', map: texturaHierba,
         specular: 0x222222, shininess: 50});
+
+    materialTile = new THREE.MeshLambertMaterial({color:'white', map: texturaHierba});
 
     materialBase = new THREE.MeshPhongMaterial({color:0xFFFFFF, map: texturaBase,
         specular: 0x222222, shininess: 50});
@@ -785,7 +825,7 @@ function setUpCameras(ar)
     var puntoInteres = new THREE.Vector3(0, 30, 0);
 
     // Perspectiva
-    camera = new THREE.PerspectiveCamera( 50, ar, 0.1, 2500);
+    camera = new THREE.PerspectiveCamera( 50, ar, 0.1, 7500);
     camera.position.set(-1000, 1000, -1000);
 
     // El controlador de la cámara recibe como parámetros la propia cámara y el canvas
@@ -793,6 +833,11 @@ function setUpCameras(ar)
     camera.lookAt(puntoInteres); // Debe ir después de la inicialización de los controladores para evitar reseteos
     cameraController.target.set(puntoInteres.x, puntoInteres.y, puntoInteres.z);
     cameraController.enableKeys = false;
+    cameraController.enablePan = false;
+    cameraController.enableZoom = false;
+    cameraController.minPolarAngle = pi/4;
+    cameraController.maxPolarAngle = pi/3;
+
     //cameraController.enableRotate = false;    
 }
 
@@ -821,6 +866,10 @@ function loadHexagonalMapScene(radius)
     var hexaBorderMesh = new THREE.Mesh(tileBorderGeo, materialBorder);
     // The tiles are a group of an hexagonal prism and the hexagonal border
     var tileGroup = new THREE.Object3D();
+    hexaMesh.receiveShadows = true;
+    hexaBorderMesh.receiveShadows = true;
+    hexaMesh.castShadow = true;
+    hexaBorderMesh.castShadow = true;
     tileGroup.add(hexaMesh);
     tileGroup.add(hexaBorderMesh);
     // The nodes are created to keep all the map connected
@@ -843,6 +892,10 @@ function loadHexagonalMapScene(radius)
             tileGroup = new THREE.Object3D();
             tileGroup.add(hexaMesh);
             tileGroup.add(hexaBorderMesh);
+            hexaMesh.receiveShadows = true;
+            hexaBorderMesh.receiveShadows = true;
+            hexaMesh.castShadow = true;
+            hexaBorderMesh.castShadow = true;
             tileGroup.translateX(i * (tileRadius * Math.sqrt(3) + tileMargin) * Math.sin(angle));
             tileGroup.translateZ(i * (tileRadius * Math.sqrt(3) + tileMargin) * Math.cos(angle));
 
@@ -882,6 +935,16 @@ function loadHexagonalMapScene(radius)
 
     targetScene.add(robot.malla);
 
+    // ROOM - TIME ///
+    var side = tileRadius * radius * 10;
+    var heigth = 1500;
+    var geoCubo = new THREE.CubeGeometry(side, heigth, side);
+    var habitacion = new THREE.Mesh(geoCubo, materialHabitacion);
+    habitacion.translateY(heigth/2 - tileHeigth);
+    habitacion.receiveShadows = true;
+
+    targetScene.add(habitacion);
+
     return targetScene;
 }
 
@@ -902,8 +965,10 @@ function updateAspectRatio() {
 */
 function update()
 {
+    stats.begin();
     // Actualiza interpoladores
-	TWEEN.update();
+    TWEEN.update();
+    stats.end();
 }
 
 var auxGeo = new THREE.Geometry();
@@ -1094,7 +1159,7 @@ function init()
     // Seguimiento del rendimiento
     stats = new Stats();
     stats.showPanel( -1 ); // 0: fps, 1: ms, 2: mb, 3+: custom 
-    document.boullScen
+    document.body.appendChild( stats.dom );
     window.addEventListener('resize', updateAspectRatio);
 
     // Carga de la escena principal y renderizado
