@@ -589,14 +589,14 @@ function setLights()
     luzPuntual.position.set( 50, 150, 50 );
 
     luzFocal = new THREE.SpotLight(0xFFFFFF, 0.5);
-    luzFocal.position.set( -350, 700, -475 );
+    luzFocal.position.set( -250, 600, -375 );
     luzFocal.target.position.set(0,125,0);
     luzFocal.angle = Math.PI/20;
     luzFocal.penumbra = 0.2;
     luzFocal.castShadow = true;
     // Sombras
     luzFocal.shadow.camera.near = 1;
-    luzFocal.shadow.camera.far =  2500;
+    luzFocal.shadow.camera.far =  27500;
 
     scene.add( luzAmbiente );
     scene.add( luzPuntual );
@@ -866,8 +866,8 @@ function loadHexagonalMapScene(radius)
     var hexaBorderMesh = new THREE.Mesh(tileBorderGeo, materialBorder);
     // The tiles are a group of an hexagonal prism and the hexagonal border
     var tileGroup = new THREE.Object3D();
-    hexaMesh.receiveShadows = true;
-    hexaBorderMesh.receiveShadows = true;
+    hexaMesh.receiveShadow = true;
+    hexaBorderMesh.receiveShadow = true;
     hexaMesh.castShadow = true;
     hexaBorderMesh.castShadow = true;
     tileGroup.add(hexaMesh);
@@ -892,8 +892,8 @@ function loadHexagonalMapScene(radius)
             tileGroup = new THREE.Object3D();
             tileGroup.add(hexaMesh);
             tileGroup.add(hexaBorderMesh);
-            hexaMesh.receiveShadows = true;
-            hexaBorderMesh.receiveShadows = true;
+            hexaMesh.receiveShadow = true;
+            hexaBorderMesh.receiveShadow = true;
             hexaMesh.castShadow = true;
             hexaBorderMesh.castShadow = true;
             tileGroup.translateX(i * (tileRadius * Math.sqrt(3) + tileMargin) * Math.sin(angle));
@@ -941,7 +941,7 @@ function loadHexagonalMapScene(radius)
     var geoCubo = new THREE.CubeGeometry(side, heigth, side);
     var habitacion = new THREE.Mesh(geoCubo, materialHabitacion);
     habitacion.translateY(heigth/2 - tileHeigth);
-    habitacion.receiveShadows = true;
+    habitacion.receiveShadow = true;
 
     targetScene.add(habitacion);
 
@@ -1135,6 +1135,7 @@ function init()
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor( new THREE.Color(0x0000AA) );
+    renderer.shadowMap.enabled = true;
     // Esta opción requiere "Cleans" manuales
     renderer.autoClear = false;
     // El canvas pasa a estar asociado al contenedor definido en el documento HTML
