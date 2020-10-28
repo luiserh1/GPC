@@ -29,15 +29,24 @@ var loadPercentWire, loadPercentMeshes, unloadPercentWire;
 // Objective scene
 var sceneObj;
 // Variables to speedUp process
-var allObjs, superGeo, sceneAnalysed = false;
+var allObjs, sceneAnalysed = false, allWireObjs;
 // And to store it
-var protoMesh, protoRoot, lastFaceIndex, lastMeshIndex;
+var protoRoot, lastFaceIndex, lastMeshIndex;
 
 // Materiales
 var materialDefault, materialTile, materialBorder, materialDebug, materialPlano, materialHabitacion, materialBase, materialEje,
-    materialEsparrago, materialRotula, materialDisco, materialNervio, materialPalma, materialPinza;
+    materialEsparrago, materialRotula, materialDisco, materialNervio, materialPalma, materialPinza, materialHabitacion512;
 // Luces
 var luzAmbiente, luzPuntual, luzDireccional, luzFocal;
+
+// Estado del juego
+const STATES =
+{
+    LOADING: 0,
+    STAND_BY: 1,
+    ANIMATING: 2
+}
+var gameState;
 
 // Debug
 var k = 0;
@@ -577,9 +586,6 @@ function setLights()
     luzPuntual = new THREE.PointLight(0xEFA94A,0.2);
     luzPuntual.position.set( 50, 150, 50 );
 
-    //luzDireccional = new THREE.DirectionalLight(0xFFFFFF, 0.5);
-    //luzDireccional.position.set(-300, 50, 200 );
-
     luzFocal = new THREE.SpotLight(0xAAAAAA, 0.3);
     luzFocal.position.set( -350, 700, -475 );
     luzFocal.target.position.set(0,125,0);
@@ -589,14 +595,9 @@ function setLights()
     // Sombras
     luzFocal.shadow.camera.near = 1;
     luzFocal.shadow.camera.far =  2500;
-    /*luzFocal.shadow.camera.position.set( 0, 0, 500 );
-    luzFocal.shadow.camera.lookAt(new THREE.Vector3(-50, 125, -50));
-    scene.add(new THREE.SpotLightHelper(luzFocal));
-    scene.add(new THREE.CameraHelper(luzFocal.shadow.camera));*/
 
     scene.add( luzAmbiente );
     scene.add( luzPuntual );
-    //scene.add( luzDireccional );
     scene.add( luzFocal );
 }
 
@@ -605,7 +606,7 @@ function setUpGUI()
     // Definicion de los controles
     mapController =
     {
-		radius: 15,     // Valores iniciales
+		radius: 4,     // Valores iniciales
 		reset: false
 	};
 
@@ -617,7 +618,7 @@ function setUpGUI()
     var h = gui.addFolder("Configuración Mapa");
     // Configurar opciones
     // Variable que almacena la opción              Nombre dict    Nombre en dict        Min   Max    Delta   Nombre Visible
-    var radiusLS =                            h.add(mapController, "radius",             10,   30,    1).name("Radio");
+    var radiusLS =                            h.add(mapController, "radius",             2,   7,     1).name("Radio");
     var resetLS = h.add(mapController, "reset").name("Reconstruir");
     // Almacenar la opción en una variable permite configurar un <<listener>>
     // Lo cuál es imprescindible, pues necesitamos devolver el foco al canvas una vez terminada la configuración
@@ -628,12 +629,19 @@ function setUpGUI()
     });
     resetLS.onChange(function (nuevoValor)
     {
+        sceneAnalysed = false;
+        sceneObj = loadHexagonalMapScene(mapController.radius);
+        animateIncrementalRendering();
         renderer.domElement.focus();
+        mapController.reset = false;
     });
 }
 
 function setUpMaterials()
 {
+    // https://www.pinterest.es/pin/312296555393975124/ -> Textura hierba
+    // http://sweetatariq.com/yhxw/free-cubemaps.html -> Cubemap
+
     materialDefault = new THREE.MeshBasicMaterial({color:'red', wireframe:true});
     materialTile = new THREE.MeshBasicMaterial({color:'green', wireframe:false});
     materialBorder = new THREE.MeshBasicMaterial({color:'orange', wireframe:false});
@@ -690,11 +698,17 @@ function setUpMaterials()
 
     texturaBase = texturaEje = texturaEsparrago = texturaMetal;
 
-    var urlsHabitacion =    [path + "pond/posx.jpg", path + "pond/negx.jpg"
-                            ,path + "pond/posy.jpg", path + "pond/negy.jpg"
-                            ,path + "pond/posz.jpg", path + "pond/negz.jpg"]
+    var urlsHabitacion =    [path + "EntregableFinal/posx.jpg", path + "EntregableFinal/negx.jpg"
+                            ,path + "EntregableFinal/posy.jpg", path + "EntregableFinal/negy.jpg"
+                            ,path + "EntregableFinal/posz.jpg", path + "EntregableFinal/negz.jpg"]
+
+    var urlsHabitacion512 = [path + "EntregableFinal/posx512x512.jpg", path + "EntregableFinal/negx512x512.jpg"
+                            ,path + "EntregableFinal/posy512x512.jpg", path + "EntregableFinal/negy512x512.jpg"
+                            ,path + "EntregableFinal/posz512x512.jpg", path + "EntregableFinal/negz512x512.jpg"]
     var mapaEntorno = new THREE.CubeTextureLoader().load(urlsHabitacion);
     mapaEntorno.format = THREE.RGBFormat;
+    var mapaEntorno512 = new THREE.CubeTextureLoader().load(urlsHabitacion512);
+    mapaEntorno512.format = THREE.RGBFormat;
     
     var texturaMadera = loader.load(
         // resource URL
@@ -745,12 +759,20 @@ function setUpMaterials()
 
     // Habitacion
 	var shader = THREE.ShaderLib.cube;
-	shader.uniforms.tCube.value = mapaEntorno;
+    shader.uniforms.tCube.value = mapaEntorno;
+    var shader512 = THREE.ShaderLib.cube;
+	shader512.uniforms.tCube.value = mapaEntorno;
 
 	materialHabitacion = new THREE.ShaderMaterial({
 		fragmentShader: shader.fragmentShader,
 		vertexShader: shader.vertexShader,
 		uniforms: shader.uniforms,
+        side: THREE.BackSide
+    });
+    materialHabitacion512 = new THREE.ShaderMaterial({
+		fragmentShader: shader512.fragmentShader,
+		vertexShader: shader512.vertexShader,
+		uniforms: shader512.uniforms,
         side: THREE.BackSide
     });
 }
@@ -894,6 +916,7 @@ function incrementalLoad()
         scene = sceneObj;
         // Luces
         setLights();
+        gameState = STATES.STAND_BY;
         return 1;
     }
 
@@ -904,17 +927,15 @@ function incrementalLoad()
 
         lastFaceIndex = 0;
         lastMeshIndex = 0;
-        protoMesh = new THREE.Mesh(auxGeo, materialDefault);
         protoRoot = new THREE.Group();
-        protoRoot.add(protoMesh);
 
         scene.add(protoRoot);
 
-        superGeo = new THREE.Geometry();
         allObjs = [];
+        allWireObjs = [];
     
         var elementsToAnalyze = [sceneObj];
-    
+
         while (elementsToAnalyze.length > 0)
         {
             var element = elementsToAnalyze.pop();
@@ -928,72 +949,61 @@ function incrementalLoad()
                         allObjs.push(newObj);
                     }
                 }
-            else
-            {
-                superGeo.merge(element.geometry, element.parent.matrix); // TODO dejarlo como estaba
-            }
+                else
+                {
+                    var newObjWired = new THREE.Object3D();
+                    var newMesh = element.clone();
+                    newMesh.material = materialDefault;
+
+                    var parentPosition = new THREE.Vector3();
+                    parentPosition = element.parent.getWorldPosition(parentPosition);
+
+                    newObjWired.add(newMesh);
+                    newObjWired.translateX(parentPosition.x);
+                    newObjWired.translateY(parentPosition.y);
+                    newObjWired.translateZ(parentPosition.z);
+                    allWireObjs.push(newObjWired);
+                }
         }
-        //protoMesh.geometry.vertices = superGeo.vertices;
-        protoMesh.geometry.vertices = new Array(superGeo.vertices.length);
         sceneAnalysed = true;
     }
 
     if (loadPercentWire.val < 100)
     {
         var proportion = loadPercentWire.val / 100.0;
-        var renderedFacesNum = Math.ceil( proportion * superGeo.faces.length );
+        var renderedFacesNum = Math.ceil( proportion * allWireObjs.length );
 
-        //var check1 = [];
-        //var check2 = [];
         for (var i = lastFaceIndex; i < renderedFacesNum; i++)
         {
-            var index = superGeo.faces.length-1 - i;
-            console.error(i, "|", index, " -> ", superGeo.faces[index].type);
-            var theFace = new THREE.Face3();
-            theFace.copy(superGeo.faces[index]);
-            protoMesh.geometry.faces.push(theFace);
-            protoMesh.geometry.vertices[theFace.a].copy(superGeo.vertices[theFace.a]);
-            protoMesh.geometry.vertices[theFace.b].copy(superGeo.vertices[theFace.b]);
-            protoMesh.geometry.vertices[theFace.c].copy(superGeo.vertices[theFace.c]);
-            //check1.push(superGeo.faces[superGeo.faces.length-1 - i]);
+            protoRoot.add(allWireObjs[allWireObjs.length-1-i]);
             lastFaceIndex++;
         }
-
-        /*for (var i = 0; i < superGeo.faces.length-1; i++) {
-            //protoMesh.geometry.faces.push(superGeo.faces[i]);
-        }*/
-
-        /*var index = check1.length-1;
-        if (index)
-            console.error("Para k = " + k + " e i = " + index + "\n" + check1[index].a + " VS " + check2[index].a + " VS " + superGeo.faces[superGeo.faces.length-1 - index].a
-                + "\nL1: " + check1.length + "\tL2: " + check2.length + "\tLsG: " + superGeo.faces.length);*/
 
     }
     else if (loadPercentMeshes.val < 100)
     {
-
         var proportion = (loadPercentMeshes.val) / 100.0;
         var numMeshes = Math.ceil( proportion * allObjs.length );
-        for (var i = allObjs.length-lastMeshIndex-1; i > allObjs.length-numMeshes; i--)
+        for (var i = lastMeshIndex; i < numMeshes; i++)
         {
-            protoRoot.add(allObjs[i]);
+            protoRoot.add(allObjs[allObjs.length-1-i]);
+            if (lastMeshIndex < allWireObjs.length)
+                protoRoot.children[lastMeshIndex].children[0].material = materialDebug;
             lastMeshIndex++;
         }
     }
     else //if (unloadPercentWire.val < 100)
     {
+        if (lastFaceIndex >= allWireObjs.length) lastFaceIndex = 0;
         var proportion = (unloadPercentWire.val) / 100.0;
-        var removedFacesNum = Math.ceil( proportion * superGeo.faces.length );
-        for (var i = 0; i < removedFacesNum - lastFaceIndex; i--)
+        var removedFacesNum = Math.ceil( proportion * allWireObjs.length );
+        
+        for (var i = lastFaceIndex; i < removedFacesNum; i++)
         {
-            //protoMesh.geometry.faces.pop();
-            protoMesh.geometry.faces = [];
+            protoRoot.remove(allWireObjs[allWireObjs.length-1-i]);
             lastFaceIndex++;
         }
     }   
-
-    if (protoMesh.geometry.faces.length < 1)
-        return 0;
 
     return 0;
 }
@@ -1013,6 +1023,7 @@ function draw() {
 *   Función a cargo de dibujar cada frame
 */
 function render() {
+    if (gameState == STATES.LOADING) return;
     requestAnimationFrame(render);
 
     update();
@@ -1033,18 +1044,19 @@ function renderInc()
 
 function animateIncrementalRendering()
 {
+    gameState = STATES.LOADING;
     loadPercentWire = {val: 0};
     loadPercentMeshes = {val: 0};
     unloadPercentWire = {val: 0};
-    var loadPercentWireInc = new TWEEN.Tween( loadPercentWire ).to( {val: [0.0, 97.99, 85, 101]} /*Rango*/, 7500 /*Tiempo en ms*/);
+    var loadPercentWireInc = new TWEEN.Tween( loadPercentWire ).to( {val: [0.0, 101]} /*Rango*/, 750 * mapController.radius /*Tiempo en ms*/);
     loadPercentWireInc.interpolation(TWEEN.Interpolation.Bezier);
     loadPercentWireInc.easing(TWEEN.Easing.Exponential.InOut);
-    var loadPercentMeshesInc = new TWEEN.Tween( loadPercentMeshes ).to( {val: [0.0, 101]} /*Rango*/, 3500 /*Tiempo en ms*/);
+    var loadPercentMeshesInc = new TWEEN.Tween( loadPercentMeshes ).to( {val: [0.0, 101]} /*Rango*/, 600 * mapController.radius /*Tiempo en ms*/);
     loadPercentMeshesInc.interpolation(TWEEN.Interpolation.Bezier);
-    loadPercentMeshesInc.easing(TWEEN.Easing.Circular.Out);
-    var unloadPercentWireInc = new TWEEN.Tween( unloadPercentWire ).to( {val: [0.0, 75.99, 45, 101]} /*Rango*/, 2500 /*Tiempo en ms*/);
+    loadPercentMeshesInc.easing(TWEEN.Easing.Sinusoidal.In);
+    var unloadPercentWireInc = new TWEEN.Tween( unloadPercentWire ).to( {val: [0.0, 101]} /*Rango*/, 325 * mapController.radius /*Tiempo en ms*/);
     unloadPercentWireInc.interpolation(TWEEN.Interpolation.Bezier);
-    unloadPercentWireInc.easing(TWEEN.Easing.Quintic.Out);
+    unloadPercentWireInc.easing(TWEEN.Easing.Cubic.Out);
     
     loadPercentWireInc.chain(loadPercentMeshesInc);
     loadPercentMeshesInc.chain(unloadPercentWireInc);
@@ -1086,7 +1098,7 @@ function init()
     window.addEventListener('resize', updateAspectRatio);
 
     // Carga de la escena principal y renderizado
-    sceneObj = loadHexagonalMapScene(3);
+    sceneObj = loadHexagonalMapScene(mapController.radius);
     animateIncrementalRendering();
 }
 
